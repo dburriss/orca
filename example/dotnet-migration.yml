@@ -9,7 +9,7 @@ repos:
     owner: "acme"
 
 issue:
-  template: "./templates/dotnet-upgrade.md"
+  template: "./dotnet-upgrade-6-to-10.md"
   labels: ["migration", "automated"]
 
 copilot:
