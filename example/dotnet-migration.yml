@@ -3,10 +3,12 @@ job:
   org: "dburriss"
 
 repos:
-  - name: "service-a"
-    owner: "acme"
-  - name: "service-b"
-    owner: "acme"
+  - "wye"
+  - "fennel"
+  - "unique"
+  - "overboard"
+  - "event-feed"
+  
 
 issue:
   template: "./dotnet-upgrade-6-to-10.md"
