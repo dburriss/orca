@@ -15,7 +15,7 @@ issue:
 copilot:
   agent: "default"
   run_args: []
-  max_runs: 1   # idempotency guard
+  max_runs: 1
 
 project:
   name: "dotnet-10-migration"
