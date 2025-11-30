@@ -1,5 +1,5 @@
 job:
-  title: "dotnet-10-migration"
+  title: "Dotnet 6 to 10 Upgrade"
   org: "dburriss"
 
 repos:
