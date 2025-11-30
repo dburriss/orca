@@ -112,7 +112,7 @@ def main [--verbose, yaml_file: string] {
 
         # Create issue
         let label_str = $labels | str join ","
-        let issue_result = do { gh issue create --repo $"($org)/($repo)" --title $title --body $template_content --label $label_str } | complete
+        let issue_result = do { gh issue create --repo $"($org)/($repo)" --title $title --body $template_content } | complete
         if $issue_result.exit_code != 0 {
             print $"Failed to create issue in ($org)/($repo): ($issue_result.stderr)"
             continue
@@ -122,7 +122,7 @@ def main [--verbose, yaml_file: string] {
         print $"Created issue in ($org)/($repo): ($issue_url)"
 
         # Add to project
-        let add_result = do { gh project item-add --project-id $project_id --url $issue_url } | complete
+        let add_result = do { gh project item-add $project_id --url $issue_url } | complete
         if $add_result.exit_code != 0 {
             print $"Failed to add issue to project: ($add_result.stderr)"
         } else {
