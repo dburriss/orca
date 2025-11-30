@@ -82,10 +82,10 @@ def main [--verbose, yaml_file: string] {
     }
     let project_exists = $existing_projects.projects | any {|p| $p.title == $project_name}
 
-    let project_id = if $project_exists {
+    let project_number = if $project_exists {
         let project = $existing_projects.projects | where {|p| $p.title == $project_name} | first
         print $"Project '($project_name)' already exists in org '($org)'. Using existing project."
-        $project.id
+        $project.number
     } else {
         # Create the project
         let create_result = do { gh project create --title $project_name --owner $org --format json } | complete
@@ -93,40 +93,63 @@ def main [--verbose, yaml_file: string] {
             error make {msg: $"Failed to create project: ($create_result.stderr)"}
         } else {
             print $"Successfully created project '($project_name)' in org '($org)'"
-            let project_data = $create_result.stdout | from json
-            $project_data.id
+            # List again to get the number
+            let list_result2 = do { gh project list --owner $org --format json } | complete
+            if $list_result2.exit_code != 0 {
+                error make {msg: $"Failed to list projects after create: ($list_result2.stderr)"}
+            }
+            let projects_after = $list_result2.stdout | from json
+            let new_project = $projects_after.projects | where {|p| $p.title == $project_name} | first
+            $new_project.number
         }
     }
 
     # Create issues and add to project
     for $repo in $repos {
-        # Check if issue already exists
-        let list_result = do { gh issue list --repo $"($org)/($repo)" --state open --json title } | complete
+        # Get issue URL (create if doesn't exist)
+        mut issue_url = null
+        let list_result = do { gh issue list --repo $"($org)/($repo)" --state open --json title,number,url } | complete
         if $list_result.exit_code == 0 {
             let existing_issues = $list_result.stdout | from json
-            if ($existing_issues | any {|i| $i.title == $title}) {
-                print $"Issue '($title)' already exists in ($org)/($repo), skipping"
-                continue
+            let existing_issue = $existing_issues | where {|i| $i.title == $title} | first
+            if ($existing_issue | is-not-empty) {
+                $issue_url = $existing_issue.url
+                print $"Issue '($title)' already exists in ($org)/($repo): ($issue_url)"
             }
         }
 
-        # Create issue
-        let label_str = $labels | str join ","
-        let issue_result = do { gh issue create --repo $"($org)/($repo)" --title $title --body $template_content } | complete
-        if $issue_result.exit_code != 0 {
-            print $"Failed to create issue in ($org)/($repo): ($issue_result.stderr)"
-            continue
+        if ($issue_url | is-empty) {
+            # Create issue
+            let label_str = $labels | str join ","
+            let issue_result = do { gh issue create --repo $"($org)/($repo)" --title $title --body $template_content } | complete
+            if $issue_result.exit_code != 0 {
+                print $"Failed to create issue in ($org)/($repo): ($issue_result.stderr)"
+                continue
+            }
+            $issue_url = $issue_result.stdout | str trim
+            print $"Created issue in ($org)/($repo): ($issue_url)"
         }
 
-        let issue_url = $issue_result.stdout | str trim
-        print $"Created issue in ($org)/($repo): ($issue_url)"
+        # Check if issue is already in project
+        let item_list_result = do { gh project item-list $project_number --owner $org --format json } | complete
+        if $item_list_result.exit_code != 0 {
+            print $"Failed to list project items: ($item_list_result.stderr)"
+            continue
+        }
+        let project_items = $item_list_result.stdout | from json
+        let current_issue_url = $issue_url
+        let is_in_project = $project_items.items | any {|item| $item.content.url == $current_issue_url}
 
-        # Add to project
-        let add_result = do { gh project item-add $project_id --url $issue_url } | complete
-        if $add_result.exit_code != 0 {
-            print $"Failed to add issue to project: ($add_result.stderr)"
+        if $is_in_project {
+            print $"Issue already in project, skipping add"
         } else {
-            print $"Added issue to project"
+            # Add to project
+            let add_result = do { gh project item-add $project_number --owner $org --url $current_issue_url } | complete
+            if $add_result.exit_code != 0 {
+                print $"Failed to add issue to project: ($add_result.stderr)"
+            } else {
+                print $"Added issue to project"
+            }
         }
     }
 }
