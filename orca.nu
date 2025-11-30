@@ -36,10 +36,10 @@ def main [--verbose, yaml_file: string] {
         print $"Loaded config: ($config)"
     }
 
-    # Extract project configuration
-    let project = $config | get project
-    let project_name = $project | get name
-    let org = $project | get org
+    # Extract job configuration
+    let job = $config | get job
+    let project_name = $job | get title
+    let org = $job | get org
 
     # Validate inputs
     if ($project_name | is-empty) {
@@ -66,7 +66,7 @@ def main [--verbose, yaml_file: string] {
     }
 
     # Create the project
-    let create_result = do { gh project create $project_name --owner $org } | complete
+    let create_result = do { gh project create --title $project_name --owner $org } | complete
     if $create_result.exit_code != 0 {
         error make {msg: $"Failed to create project: ($create_result.stderr)"}
     } else {

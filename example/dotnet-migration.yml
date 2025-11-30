@@ -1,6 +1,6 @@
 job:
-  title: "Upgrade to .NET 10"
-  description: "Apply .NET 10 upgrade across selected repositories."
+  title: "dotnet-10-migration"
+  org: "dburriss"
 
 repos:
   - name: "service-a"
@@ -16,8 +16,4 @@ copilot:
   agent: "default"
   run_args: []
   max_runs: 1
-
-project:
-  name: "dotnet-10-migration"
-  org: "dburriss"
 
