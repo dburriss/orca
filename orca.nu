@@ -21,7 +21,7 @@ def ensure_auth [] {
     }
 }
 
-def main [yaml_file: string] {
+def main [--verbose, yaml_file: string] {
     # Ensure authentication is set up
     ensure_auth
 
@@ -30,6 +30,10 @@ def main [yaml_file: string] {
         open $yaml_file
     } catch { |err|
         error make {msg: $"Failed to parse YAML file '($yaml_file)': ($err.msg)"}
+    }
+
+    if $verbose {
+        print $"Loaded config: ($config)"
     }
 
     # Extract project configuration
@@ -51,7 +55,10 @@ def main [yaml_file: string] {
         error make {msg: $"Failed to list projects: ($list_result.stderr)"}
     }
     let existing_projects = $list_result.stdout | from json
-    let project_exists = $existing_projects | any {|p| $p.title == $project_name}
+    if $verbose {
+        print $"Existing projects: ($existing_projects)"
+    }
+    let project_exists = $existing_projects.projects | any {|p| $p.title == $project_name}
 
     if $project_exists {
         print $"Project '($project_name)' already exists in org '($org)'. Skipping creation."
