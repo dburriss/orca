@@ -1,7 +1,7 @@
-# .NET Upgrade: F# Project from 6 to 10
+# .NET Upgrade: .NET Solution to 10
 
 ## Objective
-Upgrade an existing F# project from .NET 6 to .NET 10, ensuring compatibility, updating dependencies, and addressing any breaking changes.
+Upgrade an existing C# or F# project from .NET 6 to .NET 10, ensuring compatibility, updating dependencies, and addressing any breaking changes.
 
 ## Role
 You are a .NET developer specializing in F# and migration tasks. Your task is to systematically update the codebase to target .NET 10 while maintaining functionality.
@@ -10,11 +10,20 @@ You are a .NET developer specializing in F# and migration tasks. Your task is to
 The project is an F# application/library that currently targets .NET 6. It may use various .NET libraries, NuGet packages, and F# features. The upgrade involves updating the target framework, reviewing and updating package references, and modifying code to handle API changes introduced in newer .NET versions.
 
 ## Requirements
-- Update the target framework in the project file (.fsproj) from `net6.0` to `net10.0`
+- Work in small increments, 1 small step at a time
+- Update the target framework in the project file (.fsproj) to `net10.0`
 - Review and update NuGet package versions to compatible versions for .NET 10
-- Address any breaking changes in .NET APIs used in the F# code
+- Address any breaking changes in .NET APIs used in the C# or F# code
 - Ensure the project builds and tests pass after the upgrade
 - Update any configuration files if necessary
+
+## Instructions
+- Run `dotnet build` and `dotnet test` before changing anything to verify everything is working before changes
+- Calculate the dependency order and upgrade 1 project at a time
+- Update only the csproj or fsproj files to net10.0 and then run `dotnet clean` and then `dotnet build`
+- If build fails fix and then repeat until build succeeds
+- Run the tests and fix any changes needed in the project files or configuration. DO NOT CHANGE ANY TESTS OR LOGIC TO MAKE TESTS PASS.
+- Update documentation if it references specific versions
 
 ## Examples of Updates Needed
 
@@ -28,13 +37,7 @@ The project is an F# application/library that currently targets .NET 6. It may u
 ```
 
 ### 2. Package Reference Updates
-```xml
-<!-- Before -->
-<PackageReference Include="Some.Package" Version="6.0.0" />
-
-<!-- After -->
-<PackageReference Include="Some.Package" Version="10.0.0" />
-```
+- Update package versions only when needed for the .NET upgrade
 
 ### 3. Code Changes for Breaking Changes
 - Update usage of deprecated APIs (e.g., `System.Web` related code if any)
@@ -44,15 +47,6 @@ The project is an F# application/library that currently targets .NET 6. It may u
 ### 4. Configuration Updates
 - Update `global.json` if present to specify .NET 10 SDK
 - Review and update any runtime configuration files
-
-## Steps to Follow
-1. Analyze the current project structure and dependencies
-2. Update the target framework in .fsproj files
-3. Update NuGet packages to versions compatible with .NET 10
-4. Review code for deprecated API usage and update accordingly
-5. Build the project and resolve any compilation errors
-6. Run tests and fix any failing tests
-7. Update documentation if necessary
 
 ## Acceptance Criteria
 - Project targets .NET 10 successfully
