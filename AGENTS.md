@@ -22,6 +22,8 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 - Prefer simple solutions
 - Ask if unsure
 - Keep answers concise
+- Break solutions into small incremental steps
+- Do one step at a time
 
 # Tech stack
 
