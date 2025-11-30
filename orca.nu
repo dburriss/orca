@@ -40,6 +40,10 @@ def main [--verbose, yaml_file: string] {
     let job = $config | get job
     let project_name = $job | get title
     let org = $job | get org
+    let repos = $config | get repos
+    let issue_config = $config | get issue
+    let template_rel_path = $issue_config | get template
+    let labels = $issue_config | get labels
 
     # Validate inputs
     if ($project_name | is-empty) {
@@ -47,6 +51,27 @@ def main [--verbose, yaml_file: string] {
     }
     if ($org | is-empty) {
         error make {msg: "Organization is required in YAML"}
+    }
+    if ($repos | is-empty) {
+        error make {msg: "Repositories list is required in YAML"}
+    }
+    if ($template_rel_path | is-empty) {
+        error make {msg: "Issue template path is required in YAML"}
+    }
+
+    # Read issue template
+    let yaml_dir = $yaml_file | path dirname
+    let template_path = $yaml_dir + "/" + $template_rel_path
+    let template_content = try {
+        open $template_path
+    } catch { |err|
+        error make {msg: $"Failed to read template file '($template_path)': ($err.msg)"}
+    }
+
+    # Extract title from first # header
+    let title = $template_content | lines | first | str trim --left --char "#" | str trim
+    if ($title | is-empty) {
+        error make {msg: "Could not extract title from template"}
     }
 
     # Check if project already exists (idempotency)
@@ -60,16 +85,51 @@ def main [--verbose, yaml_file: string] {
     }
     let project_exists = $existing_projects.projects | any {|p| $p.title == $project_name}
 
-    if $project_exists {
-        print $"Project '($project_name)' already exists in org '($org)'. Skipping creation."
-        return
+    let project_id = if $project_exists {
+        let project = $existing_projects.projects | where {|p| $p.title == $project_name} | first
+        print $"Project '($project_name)' already exists in org '($org)'. Using existing project."
+        $project.id
+    } else {
+        # Create the project
+        let create_result = do { gh project create --title $project_name --owner $org --format json } | complete
+        if $create_result.exit_code != 0 {
+            error make {msg: $"Failed to create project: ($create_result.stderr)"}
+        } else {
+            print $"Successfully created project '($project_name)' in org '($org)'"
+            let project_data = $create_result.stdout | from json
+            $project_data.id
+        }
     }
 
-    # Create the project
-    let create_result = do { gh project create --title $project_name --owner $org } | complete
-    if $create_result.exit_code != 0 {
-        error make {msg: $"Failed to create project: ($create_result.stderr)"}
-    } else {
-        print $"Successfully created project '($project_name)' in org '($org)'"
+    # Create issues and add to project
+    for $repo in $repos {
+        # Check if issue already exists
+        let list_result = do { gh issue list --repo $"($org)/($repo)" --state open --json title } | complete
+        if $list_result.exit_code == 0 {
+            let existing_issues = $list_result.stdout | from json
+            if ($existing_issues | any {|i| $i.title == $title}) {
+                print $"Issue '($title)' already exists in ($org)/($repo), skipping"
+                continue
+            }
+        }
+
+        # Create issue
+        let label_str = $labels | str join ","
+        let issue_result = do { gh issue create --repo $"($org)/($repo)" --title $title --body $template_content --label $label_str } | complete
+        if $issue_result.exit_code != 0 {
+            print $"Failed to create issue in ($org)/($repo): ($issue_result.stderr)"
+            continue
+        }
+
+        let issue_url = $issue_result.stdout | str trim
+        print $"Created issue in ($org)/($repo): ($issue_url)"
+
+        # Add to project
+        let add_result = do { gh project item-add --project-id $project_id --url $issue_url } | complete
+        if $add_result.exit_code != 0 {
+            print $"Failed to add issue to project: ($add_result.stderr)"
+        } else {
+            print $"Added issue to project"
+        }
     }
 }
