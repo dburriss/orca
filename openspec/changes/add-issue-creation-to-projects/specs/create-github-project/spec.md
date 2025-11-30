@@ -37,17 +37,17 @@ When the tool reads the template,
 
 Then it loads the file content as the issue body.
 
-### Requirement: Extract Issue Title from Template
+### Requirement: Use Project Title as Issue Title
 
-The tool SHALL extract the issue title from the first markdown header (starting with #) in the template.
+The tool SHALL use the project title from the YAML as the issue title.
 
-#### Scenario: Template with header
+#### Scenario: Project title set
 
-Given a template starting with "# Issue Title",
+Given project title "Upgrade Project",
 
-When extracting title,
+When creating issues,
 
-Then the title is "Issue Title".
+Then the issue title is "Upgrade Project".
 
 ### Requirement: Create Issues in Repositories
 

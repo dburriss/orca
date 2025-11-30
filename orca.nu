@@ -68,11 +68,8 @@ def main [--verbose, yaml_file: string] {
         error make {msg: $"Failed to read template file '($template_path)': ($err.msg)"}
     }
 
-    # Extract title from first # header
-    let title = $template_content | lines | first | str trim --left --char "#" | str trim
-    if ($title | is-empty) {
-        error make {msg: "Could not extract title from template"}
-    }
+    # Use project name as issue title
+    let title = $project_name
 
     # Check if project already exists (idempotency)
     let list_result = do { gh project list --owner $org --format json } | complete
