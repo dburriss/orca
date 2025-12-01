@@ -61,6 +61,51 @@ def main [--dryrun, yaml_file: string] {
     let project_to_delete = $matches | first
     let project_number = $project_to_delete.number
 
+    # Get issues in the project
+    let items_result = do { gh project item-list --owner $org --number $project_number --format json } | complete
+    if $items_result.exit_code != 0 {
+        error make {msg: $"Failed to list project items: ($items_result.stderr)"}
+    }
+    let items = $items_result.stdout | from json
+    let issues = $items.items | where {|i| $i.type == "Issue"}
+
+    for issue in $issues {
+        let repo = $issue.content.repository.nameWithOwner
+        let issue_number = $issue.content.number
+
+        # Find PRs mentioning this issue
+        let prs_result = do { gh pr list --repo $repo --search $"is:pr mentions:#($issue_number)" --json number } | complete
+        if $prs_result.exit_code != 0 {
+            error make {msg: $"Failed to list PRs for issue ($issue_number): ($prs_result.stderr)"}
+        }
+        let prs = $prs_result.stdout | from json
+
+        for pr in $prs {
+            if $dryrun {
+                print $"DRY RUN: Would close PR ($pr.number) in repo ($repo) for issue #($issue_number)"
+            } else {
+                let close_result = do { gh pr close $pr.number --repo $repo } | complete
+                if $close_result.exit_code != 0 {
+                    error make {msg: $"Failed to close PR ($pr.number): ($close_result.stderr)"}
+                } else {
+                    print $"Closed PR ($pr.number) in repo ($repo)"
+                }
+            }
+        }
+
+        # Delete the issue
+        if $dryrun {
+            print $"DRY RUN: Would delete issue #($issue_number) in repo ($repo)"
+        } else {
+            let delete_result = do { gh issue delete $issue_number --repo $repo } | complete
+            if $delete_result.exit_code != 0 {
+                error make {msg: $"Failed to delete issue ($issue_number): ($delete_result.stderr)"}
+            } else {
+                print $"Deleted issue #($issue_number) in repo ($repo)"
+            }
+        }
+    }
+
     if $dryrun {
         print $"DRY RUN: Would delete project '($project_name)' with number ($project_number) from org '($org)'"
     } else {
