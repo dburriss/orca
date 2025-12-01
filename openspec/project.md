@@ -6,7 +6,6 @@ This project delivers a lightweight CLI (Nushell script) tool that orchestrates 
 ## Tech Stack
 - Nushell
 - `gh` CLI
-- `copilot` CLI
 
 ## Project Conventions
 
