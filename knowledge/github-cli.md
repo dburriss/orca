@@ -29,6 +29,8 @@ Lists items (issues, PRs, etc.) in a project.
 gh project item-list 7 --owner dburriss --format json
 ```
 
+Note: For gh project commands, the project number is the first positional argument, followed by flags like --owner.
+
 Output (abbreviated):
 ```json
 {
