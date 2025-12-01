@@ -73,12 +73,13 @@ def main [--dryrun, yaml_file: string] {
         let repo = $issue.content.repository.nameWithOwner
         let issue_number = $issue.content.number
 
-        # Find PRs mentioning this issue
-        let prs_result = do { gh pr list --repo $repo --search $"is:pr mentions:#($issue_number)" --json number } | complete
+        # Find PRs that close this issue
+        let prs_result = do { gh pr list --repo $repo --json number,closingIssuesReferences } | complete
         if $prs_result.exit_code != 0 {
             error make {msg: $"Failed to list PRs for issue ($issue_number): ($prs_result.stderr)"}
         }
-        let prs = $prs_result.stdout | from json
+        let all_prs = $prs_result.stdout | from json
+        let prs = $all_prs | where {|pr| $pr.closingIssuesReferences | any {|ref| $ref.number == $issue_number} }
 
         for pr in $prs {
             if $dryrun {
