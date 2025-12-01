@@ -56,6 +56,21 @@ Output (abbreviated):
 
 [Manual](https://cli.github.com/manual/gh_issue)
 
+### Edit Issue
+
+Edits one or more issues within the same repository.
+
+```bash
+gh issue edit {<numbers> | <urls>} [flags]
+```
+
+Editing issues' projects requires authorization with the project scope. To authorize, run `gh auth refresh -s project`.
+
+The `--add-assignee` and `--remove-assignee` flags both support the following special values:
+
+- `@me`: assign or unassign yourself
+- `@copilot`: assign or unassign Copilot (not supported on GitHub Enterprise Server)
+
 ### Delete Issue
 
 Deletes an issue.

@@ -151,5 +151,24 @@ def main [--verbose, yaml_file: string] {
                 print $"Added issue to project"
             }
         }
+
+        # Check assignees and assign to copilot if none
+        let issue_view_result = do { gh issue view $current_issue_url --json assignees } | complete
+        if $issue_view_result.exit_code == 0 {
+            let issue_data = $issue_view_result.stdout | from json
+            if ($issue_data.assignees | is-empty) {
+                let issue_number = $current_issue_url | split row '/' | last
+                let assign_result = do { gh issue edit $issue_number --repo $"($org)/($repo)" --assignee copilot } | complete
+                if $assign_result.exit_code == 0 {
+                    print $"Assigned issue to copilot"
+                } else {
+                    print $"Failed to assign issue to copilot: ($assign_result.stderr)"
+                }
+            } else {
+                print $"Issue already has assignees, skipping assignment"
+            }
+        } else {
+            print $"Failed to check assignees: ($issue_view_result.stderr)"
+        }
     }
 }
