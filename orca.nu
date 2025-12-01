@@ -138,18 +138,9 @@ def main [--verbose, yaml_file: string] {
         }
         let project_items = $item_list_result.stdout | from json
         let current_issue_url = $issue_url
-        let is_in_project = $project_items.items | any {|item| $item.content.url == $current_issue_url}
 
-        if $is_in_project {
-            print $"Issue already in project, skipping add"
-        } else {
-            # Add to project
-            let add_result = do { gh project item-add $project_number --owner $org --url $current_issue_url } | complete
-            if $add_result.exit_code != 0 {
-                print $"Failed to add issue to project: ($add_result.stderr)"
-            } else {
-                print $"Added issue to project"
-            }
+        if ($current_issue_url == null or ($current_issue_url | is-empty)) {
+            continue
         }
 
         # Check assignees and assign to copilot if none
