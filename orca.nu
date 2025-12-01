@@ -158,7 +158,7 @@ def main [--verbose, yaml_file: string] {
             let issue_data = $issue_view_result.stdout | from json
             if ($issue_data.assignees | is-empty) {
                 let issue_number = $current_issue_url | split row '/' | last
-                let assign_result = do { gh issue edit $issue_number --repo $"($org)/($repo)" --assignee copilot } | complete
+                let assign_result = do { gh issue edit $issue_number --repo $"($org)/($repo)" --assignee @copilot } | complete
                 if $assign_result.exit_code == 0 {
                     print $"Assigned issue to copilot"
                 } else {
