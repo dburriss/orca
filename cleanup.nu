@@ -67,10 +67,10 @@ def main [--dryrun, yaml_file: string] {
         error make {msg: $"Failed to list project items: ($items_result.stderr)"}
     }
     let items = $items_result.stdout | from json
-    let issues = $items.items | where {|i| $i.type == "Issue"}
+    let issues = $items.items | where {|i| $i.content.type == "Issue"}
 
     for issue in $issues {
-        let repo = $issue.content.repository.nameWithOwner
+        let repo = $issue.content.repository
         let issue_number = $issue.content.number
 
         # Find PRs that close this issue
