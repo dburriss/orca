@@ -1,4 +1,4 @@
-# .NET Upgrade: .NET Solution to 10
+# .NET Upgrade: .NET Projects to 10
 
 ## Objective
 Upgrade an existing C# or F# project from .NET 6 to .NET 10, ensuring compatibility, updating dependencies, and addressing any breaking changes.

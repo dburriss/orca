@@ -1,5 +1,5 @@
 job:
-  title: "Dotnet 6 to 10 Upgrade"
+  title: "Upgrade to .NET 10"
   org: "dburriss"
 
 repos:
@@ -11,7 +11,7 @@ repos:
   
 
 issue:
-  template: "./dotnet-upgrade-6-to-10.md"
+  template: "./dotnet-upgrade-to-10.md"
   labels: ["migration", "automated"]
 
 copilot:
