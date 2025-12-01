@@ -62,7 +62,7 @@ def main [--dryrun, yaml_file: string] {
     let project_number = $project_to_delete.number
 
     # Get issues in the project
-    let items_result = do { gh project item-list --owner $org --number $project_number --format json } | complete
+    let items_result = do { gh project item-list $project_number --owner $org --format json } | complete
     if $items_result.exit_code != 0 {
         error make {msg: $"Failed to list project items: ($items_result.stderr)"}
     }
