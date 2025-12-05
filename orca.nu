@@ -111,8 +111,9 @@ def main [--verbose, yaml_file: string] {
         let list_result = do { gh issue list --repo $"($org)/($repo)" --state open --json title,number,url } | complete
         if $list_result.exit_code == 0 {
             let existing_issues = $list_result.stdout | from json
-            let existing_issue = $existing_issues | where {|i| $i.title == $title} | first
-            if ($existing_issue | is-not-empty) {
+            let matching_issues = $existing_issues | where {|i| $i.title == $title}
+            if ($matching_issues | is-not-empty) {
+                let existing_issue = $matching_issues | first
                 $issue_url = $existing_issue.url
                 print $"Issue '($title)' already exists in ($org)/($repo): ($issue_url)"
             }
@@ -139,17 +140,36 @@ def main [--verbose, yaml_file: string] {
         let project_items = $item_list_result.stdout | from json
         let current_issue_url = $issue_url
 
-        if ($current_issue_url == null or ($current_issue_url | is-empty)) {
+        let url = $current_issue_url | default ""
+        if ($url | is-empty) {
             continue
         }
 
+        let is_in_project = $project_items.items | any {|item| $item.content.url == $current_issue_url}
+        print $"is_in_project: ($is_in_project)"
+
+        if $is_in_project {
+            print $"Issue already in project, skipping add"
+        } else {
+            # Add to project
+            print $"Attempting to add issue to project: ($current_issue_url)"
+            let add_result = do { gh project item-add $project_number --owner $org --url $current_issue_url } | complete
+            print $"add_result.exit_code: ($add_result.exit_code)"
+            print $"add_result.stderr: ($add_result.stderr)"
+            if $add_result.exit_code != 0 {
+                print $"Failed to add issue to project: ($add_result.stderr)"
+            } else {
+                print $"Added issue to project"
+            }
+        }
+
         # Check assignees and assign to copilot if none
-        let issue_view_result = do { gh issue view $current_issue_url --json assignees } | complete
+        let issue_view_result = do { gh issue view $url --json assignees } | complete
         if $issue_view_result.exit_code == 0 {
             let issue_data = $issue_view_result.stdout | from json
             if ($issue_data.assignees | is-empty) {
-                let issue_number = $current_issue_url | split row '/' | last
-                let assign_result = do { gh issue edit $issue_number --repo $"($org)/($repo)" --assignee @copilot } | complete
+                let issue_number = $url | split row '/' | last
+                let assign_result = do { gh issue edit $issue_number --repo $"($org)/($repo)" --add-assignee @copilot } | complete
                 if $assign_result.exit_code == 0 {
                     print $"Assigned issue to copilot"
                 } else {
