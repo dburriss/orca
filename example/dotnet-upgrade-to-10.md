@@ -1,17 +1,17 @@
 # .NET Upgrade: .NET Projects to 10
 
 ## Objective
-Upgrade an existing C# or F# project from .NET 6 to .NET 10, ensuring compatibility, updating dependencies, and addressing any breaking changes.
+Upgrade an existing C# or F# project from .NET 6 or 8 to .NET 10, ensuring compatibility, updating dependencies, and addressing any breaking changes.
 
 ## Role
-You are a .NET developer specializing in F# and migration tasks. Your task is to systematically update the codebase to target .NET 10 while maintaining functionality.
+You are a .NET developer specializing in C# and F# and migration tasks. Your task is to systematically update the codebase to target .NET 10 while maintaining functionality.
 
 ## Context
-The project is an F# application/library that currently targets .NET 6. It may use various .NET libraries, NuGet packages, and F# features. The upgrade involves updating the target framework, reviewing and updating package references, and modifying code to handle API changes introduced in newer .NET versions.
+The project is an F# application/library that currently targets .NET 6 or 8. It may use various .NET libraries, NuGet packages, and F# features. The upgrade involves updating the target framework, reviewing and updating package references, and modifying code to handle API changes introduced in newer .NET versions.
 
 ## Requirements
 - Work in small increments, 1 small step at a time
-- Update the target framework in the project file (.fsproj) to `net10.0`
+- Update the target framework in the project file (.csproj or .fsproj) to `net10.0`
 - Review and update NuGet package versions to compatible versions for .NET 10
 - Address any breaking changes in .NET APIs used in the C# or F# code
 - Ensure the project builds and tests pass after the upgrade
