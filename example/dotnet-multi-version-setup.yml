@@ -1,0 +1,20 @@
+job:
+  title: "Create Multi-Version .NET Setup Copilot Workflow"
+  org: "dburriss"
+
+repos:
+  - "wye"
+  - "fennel"
+  - "unique"
+  - "overboard"
+  - "event-feed"
+  
+
+issue:
+  template: "./dotnet-multi-version-setup.md"
+  labels: ["setup", "automated"]
+
+copilot:
+  agent: "default"
+  run_args: []
+  max_runs: 1
