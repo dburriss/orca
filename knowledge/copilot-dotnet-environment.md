@@ -106,17 +106,11 @@ jobs:
             8.0.x
             9.0.x
             10.0.x
-      
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.sln') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
       
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore --locked-mode
       
       - name: Build solution
         run: dotnet build --no-restore --configuration Release
@@ -207,10 +201,25 @@ Test your setup by:
 2. Checking the Actions tab to ensure the workflow runs successfully
 3. Manually running the workflow from the Actions tab
 
+## NuGet Package Lock Files
+
+For built-in caching to work, you must enable NuGet package lock files:
+
+1. Add this property to each project file:
+```xml
+<PropertyGroup>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+</PropertyGroup>
+```
+
+2. Commit the generated `packages.lock.json` files to source control
+
+3. Use `--locked-mode` with `dotnet restore` to ensure exact versions
+
 ## Best Practices
 
 1. Pin specific versions for reproducibility
-2. Use caching for NuGet packages to speed up builds
+2. Use built-in NuGet caching with lock files for faster builds
 3. Keep the setup steps minimal but complete
 4. Test the setup workflow before merging to default branch
 5. Monitor Copilot session logs for setup issues
@@ -220,3 +229,4 @@ Test your setup by:
 - [GitHub Actions setup-dotnet](https://github.com/actions/setup-dotnet)
 - [.NET SDK documentation](https://learn.microsoft.com/en-us/dotnet/core/sdk/)
 - [GitHub Copilot environment customization](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/customize-the-agent-environment)
+- [NuGet package locking](https://learn.microsoft.com/en-us/nuget/consume-packages/package-references-in-project-files#locking-dependencies)
