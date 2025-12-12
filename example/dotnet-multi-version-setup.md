@@ -20,6 +20,7 @@ The workflow needs to be named `copilot-setup-steps.yml` and placed in `.github/
 - Enable package lock files for deterministic restores
 
 ## Instructions
+- If `./gitub/workflows/copilot-setup-steps.yml` already exists, do not continue.
 Create a workflow file with the following structure:
 - Name: "Copilot Setup Steps for Multi-Version .NET"
 - Triggers: workflow_dispatch, push, and pull_request on the workflow file path
@@ -51,6 +52,7 @@ The workflow should create a `.github/workflows/copilot-setup-steps.yml` file th
 9. Uses --locked-mode for dotnet restore to ensure exact package versions
 
 ## Acceptance Criteria
+- If an existing `./gitub/workflows/copilot-setup-steps.yml` exists, it is left untouched and no other files are changed
 - Workflow file is properly formatted YAML
 - All three .NET versions are configured in a single setup step using multi-version syntax
 - Specific version numbers are used (not wildcards)
