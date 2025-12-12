@@ -6,7 +6,7 @@ This folder contains example migration specifications and their corresponding ex
 
 ## Available Examples
 
-- **dotnet-multi-version-setup** - Sets up multi-version .NET development environment
+- **dotnet-multi-version-setup** - Sets up multi-version .NET development environment so Copilot can run `build` and `test` commands
 - **add-agents-md** - Adds an AGENTS.md file to instruct agents on how to build and run the project
 - **dotnet-upgrade-to-10** - Upgrades .NET projects to version 10
 
