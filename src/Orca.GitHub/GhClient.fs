@@ -170,11 +170,63 @@ type GhCliClient(ghToken: string) =
         member this.FindIssue   repo title          = this.FindIssueImpl repo title
         member this.FindPrsForIssue repo issue      = this.FindPrsForIssueImpl repo issue
 
-        // Not yet implemented — will be filled in when run/cleanup commands are built
-        member _.CreateProject org title            = failwith "not implemented"
+        member this.CreateProject org title =
+            async {
+                let (OrgName orgStr) = org
+                match! runGh ghToken $"project create --title \"{title}\" --owner {orgStr} --format json" with
+                | Error e -> return Error e
+                | Ok json ->
+                    let el = JsonDocument.Parse(json).RootElement
+                    match intProp el "number", strProp el "url" with
+                    | Some n, Some url ->
+                        return Ok { Org = org; Number = n; Title = title; Url = url }
+                    | _ ->
+                        return Error $"Unexpected response from 'gh project create': {json}"
+            }
+
         member _.DeleteProject project              = failwith "not implemented"
-        member _.CreateIssue repo title body        = failwith "not implemented"
+
+        member this.CreateIssue repo title body =
+            async {
+                let (RepoName repoStr) = repo
+                // Write body to a temp file to avoid shell quoting issues
+                let tmpFile = System.IO.Path.GetTempFileName()
+                try
+                    System.IO.File.WriteAllText(tmpFile, body)
+                    match! runGh ghToken $"issue create --repo {repoStr} --title \"{title}\" --body-file \"{tmpFile}\" --json number,url" with
+                    | Error e -> return Error e
+                    | Ok json ->
+                        let el = JsonDocument.Parse(json).RootElement
+                        match intProp el "number", strProp el "url" with
+                        | Some n, Some url ->
+                            return Ok { Repo      = repo
+                                        Number    = IssueNumber n
+                                        Url       = url
+                                        Assignees = [] }
+                        | _ ->
+                            return Error $"Unexpected response from 'gh issue create': {json}"
+                finally
+                    System.IO.File.Delete(tmpFile)
+            }
+
         member _.CloseIssue repo issue              = failwith "not implemented"
-        member _.AddIssueToProject project issue    = failwith "not implemented"
-        member _.AssignIssue repo issue assignee    = failwith "not implemented"
+
+        member _.AddIssueToProject project issue =
+            async {
+                let (OrgName orgStr) = project.Org
+                // Idempotent: if the item is already in the project the gh CLI succeeds silently.
+                // We intentionally ignore non-zero exits here (e.g. "already exists" variants).
+                let! _ = runGh ghToken $"project item-add {project.Number} --owner {orgStr} --url {issue.Url}"
+                return Ok ()
+            }
+
+        member _.AssignIssue repo issue assignee =
+            async {
+                let (RepoName repoStr)   = repo
+                let (IssueNumber issueN) = issue
+                match! runGh ghToken $"issue edit {issueN} --repo {repoStr} --add-assignee {assignee}" with
+                | Error e -> return Error e
+                | Ok _    -> return Ok ()
+            }
+
         member _.ClosePr repo pr                    = failwith "not implemented"

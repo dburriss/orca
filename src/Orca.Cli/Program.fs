@@ -148,9 +148,35 @@ let main argv =
         let results = parser.ParseCommandLine(inputs = argv, raiseOnUsage = true)
         match results.GetSubCommand() with
         | Run args ->
-            let _yamlFile = args.GetResult(RunArgs.Yaml_File)
-            let _verbose  = args.Contains(RunArgs.Verbose)
-            failwith "not implemented: run command"
+            let yamlFile = args.GetResult(RunArgs.Yaml_File)
+            let verbose  = args.Contains(RunArgs.Verbose)
+            match resolveAuthContext () with
+            | Error e ->
+                eprintfn "Auth error: %s" e
+                1
+            | Ok authCtx ->
+                let token =
+                    authCtx.GetToken()
+                    |> Async.RunSynchronously
+                match token with
+                | Error e ->
+                    eprintfn "Auth error: %s" e
+                    1
+                | Ok ghToken ->
+                    let client = Orca.GitHub.GhClient.GhCliClient(ghToken)
+                    let deps : Orca.Core.RunCommand.RunDeps =
+                                   { GhClient    = client :> Orca.Core.GhClient.IGhClient
+                                     AuthContext = authCtx }
+                    let input : Orca.Core.RunCommand.RunInput = { YamlPath = yamlFile; Verbose = verbose }
+                    match Orca.Core.RunCommand.execute deps input with
+                    | Error e ->
+                        eprintfn "Error: %s" e
+                        1
+                    | Ok lock ->
+                        printfn "Run complete. %d issue(s) processed across %d repo(s)."
+                            lock.Issues.Length lock.Repos.Length
+                        printfn "Lock file written."
+                        0
         | Cleanup args ->
             let _yamlFile = args.GetResult(CleanupArgs.Yaml_File)
             let _dryRun   = args.Contains(CleanupArgs.Dryrun)

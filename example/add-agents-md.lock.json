@@ -1,5 +1,5 @@
 {
-  "lockedAt": "2026-03-02T20:12:25.6188700\u002B00:00",
+  "lockedAt": "2026-03-02T20:34:21.0466000\u002B00:00",
   "yamlHash": "8454423f5a0e6cf59569b56ac2ac3e1f207b8c589f4fcc475d5aa34c192f4917",
   "project": {
     "org": "dburriss",
@@ -61,30 +61,5 @@
       ]
     }
   ],
-  "pullRequests": [
-    {
-      "repo": "dburriss/wye",
-      "number": 12,
-      "url": "https://github.com/dburriss/wye/pull/12",
-      "closesIssue": 11
-    },
-    {
-      "repo": "dburriss/fennel",
-      "number": 16,
-      "url": "https://github.com/dburriss/fennel/pull/16",
-      "closesIssue": 15
-    },
-    {
-      "repo": "dburriss/unique",
-      "number": 10,
-      "url": "https://github.com/dburriss/unique/pull/10",
-      "closesIssue": 9
-    },
-    {
-      "repo": "dburriss/overboard",
-      "number": 15,
-      "url": "https://github.com/dburriss/overboard/pull/15",
-      "closesIssue": 14
-    }
-  ]
+  "pullRequests": []
 }
