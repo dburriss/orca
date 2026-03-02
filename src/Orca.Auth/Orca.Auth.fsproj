@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="AuthConfig.fs" />
     <Compile Include="PatAuth.fs" />
     <Compile Include="AppAuth.fs" />
   </ItemGroup>

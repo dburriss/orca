@@ -49,13 +49,15 @@ type AuthPatArgs =
 
 [<CliPrefix(CliPrefix.DoubleDash)>]
 type AuthAppArgs =
-    | [<Mandatory>] App_Id of id: string
-    | [<Mandatory>] Key of path: string
+    | [<Mandatory>] App_Id          of id: string
+    | [<Mandatory>] Key             of path: string
+    | [<Mandatory>] Installation_Id of id: string
     interface IArgParserTemplate with
         member a.Usage =
             match a with
-            | App_Id _ -> "GitHub App ID."
-            | Key _    -> "Path to the GitHub App private key file."
+            | App_Id _          -> "GitHub App ID."
+            | Key _             -> "Path to the GitHub App private key file."
+            | Installation_Id _ -> "GitHub App installation ID for the target organisation."
 
 [<CliPrefix(CliPrefix.DoubleDash)>]
 type AuthArgs =
