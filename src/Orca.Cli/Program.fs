@@ -1,17 +1,72 @@
 module Orca.Cli.Program
 
+open System
 open System.Diagnostics
 open Argu
 open Orca.Cli.Args
 open Orca.Auth.PatAuth
 open Orca.Auth.AppAuth
+open Orca.Core.InfoCommand
+open Orca.Core.Domain
 
 // ---------------------------------------------------------------------------
 // Entry point — parses CLI arguments and dispatches to the appropriate
 // command module in Orca.Core.
 // ---------------------------------------------------------------------------
 
-/// Run `gh auth status` with the given token injected as GH_TOKEN.
+/// Resolve the active GH_TOKEN using the following priority order:
+///   1. Stored PAT config  (ORCA_PAT env var or ~/.config/orca/auth.json type=pat)
+///   2. Stored App config  (env vars or ~/.config/orca/auth.json type=app)
+///   3. GH_TOKEN environment variable
+let private resolveAuthContext () : Result<Orca.Core.AuthContext.IAuthContext, string> =
+    // 1. Try PAT
+    match loadToken () with
+    | Ok _ -> Ok (PatAuthContext() :> Orca.Core.AuthContext.IAuthContext)
+    | Error _ ->
+        // 2. Try App
+        match resolveConfig () with
+        | Ok appCfg -> Ok (AppAuthContext(appCfg) :> Orca.Core.AuthContext.IAuthContext)
+        | Error _ ->
+            // 3. Fallback: GH_TOKEN env var
+            match Environment.GetEnvironmentVariable("GH_TOKEN") |> Option.ofObj with
+            | Some t when t.Length > 0 ->
+                Ok ({ new Orca.Core.AuthContext.IAuthContext with
+                          member _.GetToken() = async { return Ok t } })
+            | _ ->
+                Error "No GitHub credentials found. Run 'orca auth pat --token <tok>' or set GH_TOKEN."
+
+/// Format an InfoResult for console output.
+let private printInfoResult (result: InfoResult) =
+    let (OrgName orgStr)     = result.Lock.Project.Org
+    let sourceLabel =
+        match result.Source with
+        | FromLockFile -> "lock file"
+        | FromGitHub   -> "GitHub (live)"
+    printfn "Source     : %s" sourceLabel
+    printfn "Locked at  : %s" (result.Lock.LockedAt.ToString("u"))
+    printfn "YAML hash  : %s" result.Lock.YamlHash
+    printfn "Project    : %s / %s (#%d)" orgStr result.Lock.Project.Title result.Lock.Project.Number
+    printfn "Repos      : %d" (List.length result.Lock.Repos)
+    printfn "Issues     : %d" (List.length result.Lock.Issues)
+    printfn "PRs        : %d" (List.length result.Lock.PullRequests)
+    if result.Lock.Issues.Length > 0 then
+        printfn ""
+        for issue in result.Lock.Issues do
+            let (RepoName r)    = issue.Repo
+            let (IssueNumber n) = issue.Number
+            let assignees =
+                match issue.Assignees with
+                | [] -> "(unassigned)"
+                | xs -> String.concat ", " xs
+            printfn "  [%s] #%d  %s  assignees: %s" r n issue.Url assignees
+            let prs =
+                result.Lock.PullRequests
+                |> List.filter (fun pr -> pr.ClosesIssue = issue.Number && pr.Repo = issue.Repo)
+            for pr in prs do
+                let (PrNumber pn) = pr.Number
+                printfn "    PR #%d  %s" pn pr.Url
+
+
 /// Returns Ok with the status output, or Error with the error message.
 let private validateToken (token: string) : Result<string, string> =
     try
@@ -49,10 +104,33 @@ let main argv =
             let _dryRun   = args.Contains(CleanupArgs.Dryrun)
             failwith "not implemented: cleanup command"
         | Info args ->
-            let _yamlFile  = args.GetResult(InfoArgs.Yaml_File)
-            let _noLock    = args.Contains(InfoArgs.No_Lock)
-            let _saveLock  = args.Contains(InfoArgs.Save_Lock)
-            failwith "not implemented: info command"
+            let yamlFile = args.GetResult(InfoArgs.Yaml_File)
+            let noLock   = args.Contains(InfoArgs.No_Lock)
+            let saveLock = args.Contains(InfoArgs.Save_Lock)
+            match resolveAuthContext () with
+            | Error e ->
+                eprintfn "Auth error: %s" e
+                1
+            | Ok authCtx ->
+                let token =
+                    authCtx.GetToken()
+                    |> Async.RunSynchronously
+                match token with
+                | Error e ->
+                    eprintfn "Auth error: %s" e
+                    1
+                | Ok ghToken ->
+                    let client = Orca.GitHub.GhClient.GhCliClient(ghToken)
+                    let deps   = { GhClient    = client :> Orca.Core.GhClient.IGhClient
+                                   AuthContext = authCtx }
+                    let input  = { YamlPath = yamlFile; NoLock = noLock; SaveLock = saveLock }
+                    match execute deps input with
+                    | Error e ->
+                        eprintfn "Error: %s" e
+                        1
+                    | Ok result ->
+                        printInfoResult result
+                        0
         | Auth args ->
             match args.GetSubCommand() with
             | Pat patArgs ->
