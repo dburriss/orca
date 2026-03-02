@@ -120,3 +120,23 @@ Each top-level subcommand maps to a module in `Orca.Core` with a pure function t
 
 - **Unit tests** (`Orca.Core.Tests`): test domain logic (YAML parsing, lock file read/write, idempotency checks, hash computation) without any I/O or subprocess calls. Dependencies are injected as interfaces or function parameters.
 - **Integration tests** (`Orca.GitHub.Tests`): test the `gh` wrapper (via simple-exec) against a real or stubbed `gh` binary. These are opt-in and require a configured `GH_TOKEN`.
+
+---
+
+## CI/CD (GitHub Actions)
+
+Two workflows live under `.github/workflows/`:
+
+### `build.yml` — Build & Test
+
+- Triggers on every push and pull request to any branch.
+- Runs on `ubuntu-latest` using .NET 10.
+- Steps: clear NuGet cache → restore (locked-mode) → build (Release) → test.
+
+### `publish.yml` — Release
+
+- Triggers on `v*` tag pushes (e.g. `v1.0.0`) and `workflow_dispatch`.
+- Runs on a matrix of `ubuntu-latest`, `windows-latest`, and `macos-latest`.
+- Builds a self-contained, single-file binary named `orca` (or `orca.exe` on Windows) for each platform using `dotnet publish`.
+- Uploads the binaries as assets to a GitHub Release created for the tag.
+- Requires no secrets beyond the default `GITHUB_TOKEN`.
