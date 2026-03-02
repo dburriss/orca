@@ -3,6 +3,7 @@ module Orca.Cli.Program
 open System
 open System.Diagnostics
 open Argu
+open Spectre.Console
 open Orca.Cli.Args
 open Orca.Auth.PatAuth
 open Orca.Auth.AppAuth
@@ -56,34 +57,66 @@ let private resolveAuthContext () : Result<Orca.Core.AuthContext.IAuthContext, s
 
 /// Format an InfoResult for console output.
 let private printInfoResult (result: InfoResult) =
-    let (OrgName orgStr)     = result.Lock.Project.Org
+    let (OrgName orgStr) = result.Lock.Project.Org
     let sourceLabel =
         match result.Source with
-        | FromLockFile -> "lock file"
-        | FromGitHub   -> "GitHub (live)"
-    printfn "Source     : %s" sourceLabel
-    printfn "Locked at  : %s" (result.Lock.LockedAt.ToString("u"))
-    printfn "YAML hash  : %s" result.Lock.YamlHash
-    printfn "Project    : %s / %s (#%d)" orgStr result.Lock.Project.Title result.Lock.Project.Number
-    printfn "Repos      : %d" (List.length result.Lock.Repos)
-    printfn "Issues     : %d" (List.length result.Lock.Issues)
-    printfn "PRs        : %d" (List.length result.Lock.PullRequests)
+        | FromLockFile -> "[grey]lock file[/]"
+        | FromGitHub   -> "[green]GitHub (live)[/]"
+
+    // --- Metadata grid ---
+    let grid = Grid()
+    grid.AddColumn(GridColumn().PadRight(2)) |> ignore
+    grid.AddColumn(GridColumn()) |> ignore
+
+    let row (label: string) (value: string) =
+        grid.AddRow([| Markup($"[bold]{label}[/]") :> Rendering.IRenderable; Markup(value) |]) |> ignore
+
+    row "Source"    sourceLabel
+    row "Locked at" (result.Lock.LockedAt.ToString("u"))
+    row "YAML hash" $"[dim]{result.Lock.YamlHash}[/]"
+    row "Project"   $"[link={result.Lock.Project.Url}]{orgStr} / {Markup.Escape(result.Lock.Project.Title)}[/] [dim](#{result.Lock.Project.Number})[/]"
+    row "URL"       $"[dim]{result.Lock.Project.Url}[/]"
+    row "Repos"     (string (List.length result.Lock.Repos))
+    row "Issues"    (string (List.length result.Lock.Issues))
+    row "PRs"       (string (List.length result.Lock.PullRequests))
+
+    AnsiConsole.Write(grid)
+
+    // --- Issues table ---
     if result.Lock.Issues.Length > 0 then
-        printfn ""
+        AnsiConsole.WriteLine()
+        let table = Table()
+        table.Border <- TableBorder.Rounded
+        table.AddColumn(TableColumn("[bold]Repo[/]"))              |> ignore
+        table.AddColumn(TableColumn("[bold]Issue[/]").Centered())  |> ignore
+        table.AddColumn(TableColumn("[bold]PR[/]").Centered())     |> ignore
+        table.AddColumn(TableColumn("[bold]Assignees[/]"))         |> ignore
+
         for issue in result.Lock.Issues do
             let (RepoName r)    = issue.Repo
             let (IssueNumber n) = issue.Number
+            let repoUrl         = $"https://github.com/{r}"
             let assignees =
                 match issue.Assignees with
-                | [] -> "(unassigned)"
+                | [] -> "[dim](unassigned)[/]"
                 | xs -> String.concat ", " xs
-            printfn "  [%s] #%d  %s  assignees: %s" r n issue.Url assignees
             let prs =
                 result.Lock.PullRequests
                 |> List.filter (fun pr -> pr.ClosesIssue = issue.Number && pr.Repo = issue.Repo)
-            for pr in prs do
-                let (PrNumber pn) = pr.Number
-                printfn "    PR #%d  %s" pn pr.Url
+            let prText =
+                match prs with
+                | [] -> "[dim]-[/]"
+                | ps ->
+                    ps
+                    |> List.map (fun pr -> let (PrNumber pn) = pr.Number in $"#{pn}")
+                    |> String.concat ", "
+            table.AddRow(
+                [| Markup($"[cyan][link={repoUrl}]{Markup.Escape(r)}[/][/]") :> Rendering.IRenderable
+                   Markup($"[yellow]#{n}[/]")
+                   Markup(prText)
+                   Markup(assignees) |]) |> ignore
+
+        AnsiConsole.Write(table)
 
 
 /// Returns Ok with the status output, or Error with the error message.

@@ -83,11 +83,13 @@ type GhCliClient(ghToken: string) =
                     |> List.tryFind (fun el ->
                         strProp el "title" = Some title)
                     |> Option.bind (fun el ->
-                        intProp el "number"
-                        |> Option.map (fun n ->
-                            { Org    = org
-                              Number = n
-                              Title  = title }))
+                        match intProp el "number", strProp el "url" with
+                        | Some n, Some url ->
+                            Some { Org    = org
+                                   Number = n
+                                   Title  = title
+                                   Url    = url }
+                        | _ -> None)
         }
 
     // ------------------------------------------------------------------

@@ -32,7 +32,7 @@ let ``tryRead returns None when lock file does not exist`` () =
 let private sampleLock () : LockFile =
     { LockedAt     = DateTimeOffset(2026, 3, 2, 10, 0, 0, TimeSpan.Zero)
       YamlHash     = "abc123"
-      Project      = { Org = OrgName "myorg"; Number = 42; Title = "My Project" }
+      Project      = { Org = OrgName "myorg"; Number = 42; Title = "My Project"; Url = "https://github.com/users/myorg/projects/42" }
       Repos        = [ RepoName "myorg/repo-a"; RepoName "myorg/repo-b" ]
       Issues       =
           [ { Repo      = RepoName "myorg/repo-a"

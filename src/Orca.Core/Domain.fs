@@ -21,7 +21,8 @@ type PrNumber = PrNumber of int
 type ProjectInfo =
     { Org    : OrgName
       Number : int
-      Title  : string }
+      Title  : string
+      Url    : string }
 
 type IssueRef =
     { Repo      : RepoName

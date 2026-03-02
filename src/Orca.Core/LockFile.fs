@@ -22,7 +22,8 @@ open Orca.Core.Domain
 type ProjectInfoDto =
     { [<JsonPropertyName("org")>]    org:    string
       [<JsonPropertyName("number")>] number: int
-      [<JsonPropertyName("title")>]  title:  string }
+      [<JsonPropertyName("title")>]  title:  string
+      [<JsonPropertyName("url")>]    url:    string }
 
 [<CLIMutable>]
 type IssueRefDto =
@@ -67,7 +68,8 @@ let private toDto (lock: LockFile) : LockFileDto =
       project  =
           { org    = orgStr
             number = lock.Project.Number
-            title  = lock.Project.Title }
+            title  = lock.Project.Title
+            url    = lock.Project.Url }
       repos =
           lock.Repos
           |> List.map (fun (RepoName r) -> r)
@@ -100,7 +102,8 @@ let private ofDto (dto: LockFileDto) : LockFile =
       Project  =
           { Org    = OrgName dto.project.org
             Number = dto.project.number
-            Title  = dto.project.title }
+            Title  = dto.project.title
+            Url    = dto.project.url }
       Repos =
           dto.repos |> Array.toList |> List.map RepoName
       Issues =
