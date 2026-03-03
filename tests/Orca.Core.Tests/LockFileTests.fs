@@ -12,8 +12,11 @@ open Orca.Core.Domain
 
 [<Fact>]
 let ``lockFilePath derives correct path from yaml path`` () =
-    let result = lockFilePath "/projects/myjob.yml"
-    Assert.Equal("/projects/myjob.lock.json", result)
+    let dir      = Path.Combine(Path.GetTempPath(), "projects")
+    let yamlPath = Path.Combine(dir, "myjob.yml")
+    let expected = Path.Combine(dir, "myjob.lock.json")
+    let result   = lockFilePath yamlPath
+    Assert.Equal(expected, result)
 
 [<Fact>]
 let ``lockFilePath handles yaml file without directory`` () =
