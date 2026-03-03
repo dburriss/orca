@@ -1,0 +1,65 @@
+{
+  "lockedAt": "2026-03-02T20:34:21.0466000\u002B00:00",
+  "yamlHash": "8454423f5a0e6cf59569b56ac2ac3e1f207b8c589f4fcc475d5aa34c192f4917",
+  "project": {
+    "org": "dburriss",
+    "number": 13,
+    "title": "Add AGENTS.md",
+    "url": "https://github.com/users/dburriss/projects/13"
+  },
+  "repos": [
+    "dburriss/wye",
+    "dburriss/fennel",
+    "dburriss/unique",
+    "dburriss/overboard",
+    "dburriss/event-feed"
+  ],
+  "issues": [
+    {
+      "repo": "dburriss/wye",
+      "number": 11,
+      "url": "https://github.com/dburriss/wye/issues/11",
+      "assignees": [
+        "dburriss",
+        "Copilot"
+      ]
+    },
+    {
+      "repo": "dburriss/fennel",
+      "number": 15,
+      "url": "https://github.com/dburriss/fennel/issues/15",
+      "assignees": [
+        "dburriss",
+        "Copilot"
+      ]
+    },
+    {
+      "repo": "dburriss/unique",
+      "number": 9,
+      "url": "https://github.com/dburriss/unique/issues/9",
+      "assignees": [
+        "dburriss",
+        "Copilot"
+      ]
+    },
+    {
+      "repo": "dburriss/overboard",
+      "number": 14,
+      "url": "https://github.com/dburriss/overboard/issues/14",
+      "assignees": [
+        "dburriss",
+        "Copilot"
+      ]
+    },
+    {
+      "repo": "dburriss/event-feed",
+      "number": 22,
+      "url": "https://github.com/dburriss/event-feed/issues/22",
+      "assignees": [
+        "dburriss",
+        "Copilot"
+      ]
+    }
+  ],
+  "pullRequests": []
+}
