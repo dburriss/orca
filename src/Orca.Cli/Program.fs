@@ -201,11 +201,11 @@ let main argv =
                         printfn "Cleanup complete."
                     0)
         | Info args ->
-            let yamlFile = args.GetResult(InfoArgs.Yaml_File)
-            let noLock   = args.Contains(InfoArgs.No_Lock)
-            let saveLock = args.Contains(InfoArgs.Save_Lock)
+            let yamlFile  = args.GetResult(InfoArgs.Yaml_File)
+            let skipLock  = args.Contains(InfoArgs.Skip_Lock)
+            let saveLock  = args.Contains(InfoArgs.Save_Lock)
             withClient (fun deps ->
-                let input  = { YamlPath = yamlFile; NoLock = noLock; SaveLock = saveLock }
+                let input  = { YamlPath = yamlFile; SkipLock = skipLock; SaveLock = saveLock }
                 match Orca.Core.InfoCommand.execute deps input with
                 | Error e ->
                     eprintfn "Error: %s" e

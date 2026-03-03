@@ -5,7 +5,7 @@ module Orca.Core.InfoCommand
 //
 // Displays the current state of a job:
 //   - By default reads from the lock file if one exists.
-//   - With --no-lock, fetches live state from GitHub.
+//   - With --skip-lock, fetches live state from GitHub.
 //   - With --save-lock, writes a new lock file after fetching live state.
 // ---------------------------------------------------------------------------
 
@@ -16,9 +16,9 @@ open Orca.Core.Deps
 
 /// Input parameters derived from parsed CLI arguments.
 type InfoInput =
-    { YamlPath : string
-      NoLock   : bool
-      SaveLock : bool }
+    { YamlPath  : string
+      SkipLock  : bool
+      SaveLock  : bool }
 
 /// The result returned to the CLI for display.
 type InfoResult =
@@ -58,7 +58,7 @@ let private fetchFromGitHub
                         let! prs = client.FindPrsForIssue repo issue.Number
                         return ([issue], prs)
                 })
-            |> Async.Sequential
+            |> Async.Parallel
 
         let issues       = issueResults |> Array.toList |> List.collect fst
         let pullRequests = issueResults |> Array.toList |> List.collect snd
@@ -88,7 +88,7 @@ let execute (deps: OrcaDeps) (input: InfoInput) : Result<InfoResult, string> =
 
     // Try the lock file unless --no-lock was specified
     let lockOpt =
-        if input.NoLock then None
+        if input.SkipLock then None
         else LockFile.tryRead input.YamlPath
 
     match lockOpt with

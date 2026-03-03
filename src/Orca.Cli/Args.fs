@@ -34,13 +34,13 @@ type CleanupArgs =
 [<CliPrefix(CliPrefix.DoubleDash)>]
 type InfoArgs =
     | [<MainCommand; Mandatory>] Yaml_File of path: string
-    | No_Lock
+    | Skip_Lock
     | Save_Lock
     interface IArgParserTemplate with
         member a.Usage =
             match a with
             | Yaml_File _ -> "Path to the YAML job configuration file."
-            | No_Lock     -> "Bypass the lock file and always fetch live state."
+            | Skip_Lock   -> "Bypass the lock file and always fetch live state."
             | Save_Lock   -> "Write a new lock file after fetching live state."
 
 [<CliPrefix(CliPrefix.DoubleDash)>]
