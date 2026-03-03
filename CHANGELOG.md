@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-03-03
+
 ### Added
 
 - `orca run` command — creates a GitHub Project, issues, and Copilot assignments from a YAML config file
