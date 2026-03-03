@@ -87,16 +87,36 @@ type AuthArgs =
             | App _        -> "Authenticate with a GitHub App."
             | Create_App _ -> "Register a new GitHub App via the manifest flow and store its credentials."
 
-[<CliPrefix(CliPrefix.None)>]
-type OrcaArgs =
-    | [<SubCommand>] Run     of ParseResults<RunArgs>
-    | [<SubCommand>] Cleanup of ParseResults<CleanupArgs>
-    | [<SubCommand>] Info    of ParseResults<InfoArgs>
-    | [<SubCommand>] Auth    of ParseResults<AuthArgs>
+[<CliPrefix(CliPrefix.DoubleDash)>]
+type GenerateArgs =
+    | Name         of name: string
+    | Org          of org:  string
+    | Repo         of repo: string
+    | Output       of path: string
+    | Skip_Copilot
+    | Interactive
     interface IArgParserTemplate with
         member a.Usage =
             match a with
-            | Run _     -> "Execute a job defined in a YAML configuration file."
-            | Cleanup _ -> "Tear down everything created by a run command."
-            | Info _    -> "Display the current state of a job."
-            | Auth _    -> "Configure authentication for Orca."
+            | Name _        -> "Job name (used as project title and issue title). Required unless --interactive."
+            | Org _         -> "GitHub organisation. Required unless --interactive."
+            | Repo _        -> "Repo short-name to include (repeatable, e.g. --repo my-repo). Optional."
+            | Output _      -> "Output YAML file path. Defaults to <slug>.yml in the current directory."
+            | Skip_Copilot  -> "Set skipCopilot: true in the generated config."
+            | Interactive   -> "Prompt for any missing values and select repos via an interactive TUI."
+
+[<CliPrefix(CliPrefix.None)>]
+type OrcaArgs =
+    | [<SubCommand>] Run      of ParseResults<RunArgs>
+    | [<SubCommand>] Cleanup  of ParseResults<CleanupArgs>
+    | [<SubCommand>] Info     of ParseResults<InfoArgs>
+    | [<SubCommand>] Auth     of ParseResults<AuthArgs>
+    | [<SubCommand>] Generate of ParseResults<GenerateArgs>
+    interface IArgParserTemplate with
+        member a.Usage =
+            match a with
+            | Run _      -> "Execute a job defined in a YAML configuration file."
+            | Cleanup _  -> "Tear down everything created by a run command."
+            | Info _     -> "Display the current state of a job."
+            | Auth _     -> "Configure authentication for Orca."
+            | Generate _ -> "Generate a YAML job config from a name, org, and optional repo list."

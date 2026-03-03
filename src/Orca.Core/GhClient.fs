@@ -31,3 +31,6 @@ type IGhClient =
     // Pull requests
     abstract FindPrsForIssue  : repo:RepoName -> issue:IssueNumber -> Async<PullRequestRef list>
     abstract ClosePr          : repo:RepoName -> pr:PrNumber        -> Async<Result<unit, string>>
+
+    // Repos
+    abstract ListRepos        : org:OrgName -> Async<Result<string list, string>>

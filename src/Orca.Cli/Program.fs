@@ -11,6 +11,7 @@ open Orca.Auth.CreateAppCommand
 open Orca.Core.Deps
 open Orca.Core.InfoCommand
 open Orca.Core.Domain
+open Orca.Core.GenerateCommand
 
 // ---------------------------------------------------------------------------
 // Entry point — parses CLI arguments and dispatches to the appropriate
@@ -306,6 +307,89 @@ let main argv =
                         printfn "Then run:"
                         printfn "  orca auth app --app-id %s --key \"%s\" --installation-id <id>" created.Id created.PemPath
                     0
+        | Generate args ->
+            let interactive  = args.Contains(GenerateArgs.Interactive)
+            let skipCopilot  = args.Contains(GenerateArgs.Skip_Copilot)
+            let explicitRepos = args.GetResults(GenerateArgs.Repo)
+
+            withClient (fun deps ->
+                // --- Resolve name ---
+                let nameResult =
+                    match args.TryGetResult(GenerateArgs.Name), interactive with
+                    | Some n, _    -> Ok n
+                    | None, true   -> Ok (AnsiConsole.Ask<string>("Job [bold]name[/]:"))
+                    | None, false  -> Error "--name is required (or use --interactive)."
+
+                // --- Resolve org ---
+                let orgResult =
+                    match nameResult with
+                    | Error e -> Error e
+                    | Ok _ ->
+                        match args.TryGetResult(GenerateArgs.Org), interactive with
+                        | Some o, _   -> Ok o
+                        | None, true  -> Ok (AnsiConsole.Ask<string>("GitHub [bold]org[/]:"))
+                        | None, false -> Error "--org is required (or use --interactive)."
+
+                match nameResult, orgResult with
+                | Error e, _ | _, Error e ->
+                    eprintfn "Error: %s" e
+                    1
+                | Ok name, Ok org ->
+                    // --- Resolve repos ---
+                    let reposResult : Result<string list, string> =
+                        if not explicitRepos.IsEmpty then
+                            // Strip any accidental "org/" prefix so we store short names only.
+                            Ok (explicitRepos |> List.map (fun r ->
+                                let slash = r.IndexOf('/')
+                                if slash >= 0 then r.[slash + 1..] else r))
+                        elif interactive then
+                            // Fetch org repos and let the user multi-select.
+                            match listOrgRepos deps org |> Async.RunSynchronously with
+                            | Error e ->
+                                eprintfn "Warning: could not fetch repos for org '%s': %s" org e
+                                Ok []
+                             | Ok allRepos ->
+                                if (allRepos : string list).IsEmpty then
+                                    Ok []
+                                else
+                                    let prompt =
+                                        Spectre.Console.MultiSelectionPrompt<string>()
+                                            .Title($"Select repos from [bold]{org}[/]:")
+                                            .PageSize(20)
+                                            .InstructionsText("[grey](Press [blue]<space>[/] to toggle, [green]<enter>[/] to confirm)[/]")
+                                    for r in allRepos do prompt.AddChoice(r) |> ignore
+                                    Ok (AnsiConsole.Prompt(prompt) |> Seq.toList)
+                        else
+                            Ok []
+
+                    match reposResult with
+                    | Error e ->
+                        eprintfn "Error: %s" e
+                        1
+                    | Ok repos ->
+                        // --- Resolve output path ---
+                        let slug       = slugify name
+                        let outputPath =
+                            match args.TryGetResult(GenerateArgs.Output) with
+                            | Some p -> p
+                            | None   -> System.IO.Path.Combine(System.Environment.CurrentDirectory, $"{slug}.yml")
+
+                        let input : GenerateInput =
+                            { Name        = name
+                              Org         = org
+                              Repos       = repos
+                              OutputPath  = outputPath
+                              SkipCopilot = skipCopilot }
+
+                        match execute input with
+                        | Error e ->
+                            eprintfn "Error: %s" e
+                            1
+                        | Ok (yamlPath, mdPath) ->
+                            printfn "Generated:"
+                            printfn "  %s" yamlPath
+                            printfn "  %s" mdPath
+                            0)
     with
     | :? ArguParseException as ex ->
         eprintfn "%s" ex.Message

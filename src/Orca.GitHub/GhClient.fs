@@ -280,3 +280,17 @@ type GhCliClient(ghToken: string) =
                 | Error e -> return Error e
                 | Ok _    -> return Ok ()
             }
+
+        member _.ListRepos org =
+            async {
+                let (OrgName orgStr) = org
+                match! runGh ghToken $"repo list {orgStr} --json name --limit 1000" with
+                | Error e -> return Error e
+                | Ok json ->
+                    let arr = JsonDocument.Parse(json).RootElement
+                    let names =
+                        arr.EnumerateArray()
+                        |> Seq.choose (fun el -> strProp el "name")
+                        |> List.ofSeq
+                    return Ok names
+            }

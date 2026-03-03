@@ -1,4 +1,4 @@
-# Notes
+# BACKLOG
 
 - [x] flag to create labels if they don't exist
 - [x] review codebase for duplication and refactor into shared utilities
@@ -10,4 +10,4 @@
 - [x] `info` command run in parallel for each repo for speed
 - [x] add a `--skip-lock` flag to `info` to bypass the lock file and fetch live state from GitHub
 - [x] add a `--save-lock` flag to `info` to persist a new lock file
-- [ ] add a `generate` command to create a YAML config from a list of repos or orgs
+- [x] add a `generate` command to create a YAML config from a list of repos or orgs
