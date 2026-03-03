@@ -7,6 +7,7 @@ open Spectre.Console
 open Orca.Cli.Args
 open Orca.Auth.PatAuth
 open Orca.Auth.AppAuth
+open Orca.Auth.CreateAppCommand
 open Orca.Core.Deps
 open Orca.Core.InfoCommand
 open Orca.Core.Domain
@@ -199,7 +200,7 @@ let main argv =
             let saveLock = args.Contains(InfoArgs.Save_Lock)
             withClient (fun deps ->
                 let input  = { YamlPath = yamlFile; NoLock = noLock; SaveLock = saveLock }
-                match execute deps input with
+                match Orca.Core.InfoCommand.execute deps input with
                 | Error e ->
                     eprintfn "Error: %s" e
                     1
@@ -224,7 +225,7 @@ let main argv =
                         eprintfn "PAT saved but validation failed: %s" e
                         eprintfn "Ensure the token has the required scopes (project, repo)."
                         1
-            | App appArgs ->
+             | App appArgs ->
                 let appId          = appArgs.GetResult(AuthAppArgs.App_Id)
                 let key            = appArgs.GetResult(AuthAppArgs.Key)
                 let installationId = appArgs.GetResult(AuthAppArgs.Installation_Id)
@@ -252,6 +253,53 @@ let main argv =
                         | Error e ->
                             eprintfn "App config saved but validation failed: %s" e
                             1
+            | Create_App createArgs ->
+                let appName = createArgs.TryGetResult(AuthCreateAppArgs.App_Name) |> Option.defaultValue "orca"
+                let org     = createArgs.TryGetResult(AuthCreateAppArgs.Org)
+                let port    = createArgs.TryGetResult(AuthCreateAppArgs.Port) |> Option.defaultValue 9876
+                let input   = { AppName = appName; Org = org; Port = port }
+                match Orca.Auth.CreateAppCommand.execute input |> Async.RunSynchronously with
+                | Error e ->
+                    eprintfn "Error: %s" e
+                    1
+                | Ok created ->
+                    printfn "GitHub App '%s' created (ID: %s)." created.Name created.Id
+                    printfn "Private key saved to: %s" created.PemPath
+                    printfn ""
+                    // Prompt for installation ID so we can complete the auth config.
+                    let isInteractive =
+                        try not Console.IsInputRedirected
+                        with _ -> false
+                    if isInteractive then
+                        printf "Enter the installation ID (press Enter to skip): "
+                        let line = Console.ReadLine() |> Option.ofObj |> Option.defaultValue ""
+                        if not (String.IsNullOrWhiteSpace(line)) then
+                            let installId = line.Trim()
+                            let cfg = { AppId = created.Id; PrivateKeyPath = created.PemPath; InstallationId = installId }
+                            match storeConfig cfg with
+                            | Error e ->
+                                eprintfn "Warning: could not save installation ID: %s" e
+                            | Ok () ->
+                                // Validate the full config.
+                                let tokenResult =
+                                    (AppAuthContext(cfg) :> Orca.Core.AuthContext.IAuthContext)
+                                        .GetToken()
+                                    |> Async.RunSynchronously
+                                match tokenResult with
+                                | Error e ->
+                                    eprintfn "Installation ID saved but token exchange failed: %s" e
+                                | Ok tok ->
+                                    match validateToken tok with
+                                    | Ok _  -> printfn "App credentials saved and validated."
+                                    | Error e -> eprintfn "Credentials saved but validation failed: %s" e
+                        else
+                            printfn "Skipped. Run the following after installing the app:"
+                            printfn "  orca auth app --app-id %s --key \"%s\" --installation-id <id>" created.Id created.PemPath
+                    else
+                        printfn "Install the app at: https://github.com/apps/%s" (Uri.EscapeDataString(created.Name))
+                        printfn "Then run:"
+                        printfn "  orca auth app --app-id %s --key \"%s\" --installation-id <id>" created.Id created.PemPath
+                    0
     with
     | :? ArguParseException as ex ->
         eprintfn "%s" ex.Message

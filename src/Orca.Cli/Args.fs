@@ -60,14 +60,28 @@ type AuthAppArgs =
             | Installation_Id _ -> "GitHub App installation ID for the target organisation."
 
 [<CliPrefix(CliPrefix.DoubleDash)>]
-type AuthArgs =
-    | [<CliPrefix(CliPrefix.None); SubCommand>] Pat of ParseResults<AuthPatArgs>
-    | [<CliPrefix(CliPrefix.None); SubCommand>] App of ParseResults<AuthAppArgs>
+type AuthCreateAppArgs =
+    | App_Name      of name: string
+    | Org           of org: string
+    | Port          of port: int
     interface IArgParserTemplate with
         member a.Usage =
             match a with
-            | Pat _ -> "Authenticate with a Personal Access Token."
-            | App _ -> "Authenticate with a GitHub App."
+            | App_Name _ -> "Name of the GitHub App to register (default: orca)."
+            | Org _      -> "Register the app under an organisation instead of your personal account."
+            | Port _     -> "Local callback port for the OAuth redirect (default: 9876)."
+
+[<CliPrefix(CliPrefix.DoubleDash)>]
+type AuthArgs =
+    | [<CliPrefix(CliPrefix.None); SubCommand>] Pat        of ParseResults<AuthPatArgs>
+    | [<CliPrefix(CliPrefix.None); SubCommand>] App        of ParseResults<AuthAppArgs>
+    | [<CliPrefix(CliPrefix.None); SubCommand>] Create_App of ParseResults<AuthCreateAppArgs>
+    interface IArgParserTemplate with
+        member a.Usage =
+            match a with
+            | Pat _        -> "Authenticate with a Personal Access Token."
+            | App _        -> "Authenticate with a GitHub App."
+            | Create_App _ -> "Register a new GitHub App via the manifest flow and store its credentials."
 
 [<CliPrefix(CliPrefix.None)>]
 type OrcaArgs =

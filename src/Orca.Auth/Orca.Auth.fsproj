@@ -10,6 +10,7 @@
     <Compile Include="AuthConfig.fs" />
     <Compile Include="PatAuth.fs" />
     <Compile Include="AppAuth.fs" />
+    <Compile Include="CreateAppCommand.fs" />
   </ItemGroup>
 
   <ItemGroup>
