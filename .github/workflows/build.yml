@@ -24,8 +24,8 @@ jobs:
       - name: Clear NuGet caches
         run: dotnet nuget locals all --clear
 
-      - name: Restore (locked-mode)
-        run: dotnet restore --locked-mode
+      - name: Restore
+        run: dotnet restore
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
