@@ -101,7 +101,7 @@ let parseFile (path: string) : Result<JobConfig, string> =
                 // Let `parse` produce the proper validation error message.
                 parse yaml "" ""
             else
-                let yamlDir      = Path.GetDirectoryName(Path.GetFullPath(path))
+                let yamlDir      = Path.GetDirectoryName(Path.GetFullPath(path)) |> Option.ofObj |> Option.defaultValue "."
                 let templatePath = Path.GetFullPath(Path.Combine(yamlDir, root.issue.template))
                 if not (File.Exists(templatePath)) then
                     Error $"Issue template file not found: {templatePath}"

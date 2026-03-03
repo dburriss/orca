@@ -129,7 +129,7 @@ let private ofDto (dto: LockFileDto) : LockFile =
 
 /// Derive the lock file path from the YAML config file path.
 let lockFilePath (yamlPath: string) : string =
-    let dir  = Path.GetDirectoryName(yamlPath)
+    let dir  = Path.GetDirectoryName(yamlPath) |> Option.ofObj |> Option.defaultValue "."
     let stem = Path.GetFileNameWithoutExtension(yamlPath)
     Path.Combine(dir, $"{stem}.lock.json")
 
@@ -141,8 +141,9 @@ let tryRead (yamlPath: string) : LockFile option =
         None
     else
         let json = File.ReadAllText(path)
-        let dto  = JsonSerializer.Deserialize<LockFileDto>(json, jsonOptions)
-        Some (ofDto dto)
+        match JsonSerializer.Deserialize<LockFileDto>(json, jsonOptions) |> Option.ofObj with
+        | None     -> failwith $"Lock file '{path}' deserialised to null."
+        | Some dto -> Some (ofDto dto)
 
 /// Serialise and write a lock file to disk.
 let write (yamlPath: string) (lock: LockFile) : unit =
