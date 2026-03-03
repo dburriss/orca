@@ -42,7 +42,8 @@ type JobConfig =
       ProjectTitle  : string
       Repos         : RepoName list
       IssueTitle    : string
-      IssueBody     : string }
+      IssueBody     : string
+      Labels        : string list }
 
 /// Snapshot of a completed job, persisted as a lock file.
 type LockFile =

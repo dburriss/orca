@@ -88,6 +88,30 @@ let ``parseFile returns error when job section is missing`` () =
     Assert.True(Result.isError result)
 
 [<Fact>]
+let ``parseFile parses labels from YAML into JobConfig`` () =
+    let yamlPath = writeTempYaml validYaml "# Issue body"
+    match parseFile yamlPath with
+    | Error e -> Assert.True(false, $"Expected Ok but got Error: {e}")
+    | Ok cfg  ->
+        Assert.Equal(1, cfg.Labels.Length)
+        Assert.Contains("documentation", cfg.Labels)
+
+[<Fact>]
+let ``parseFile sets Labels to empty list when not present in YAML`` () =
+    let yaml =
+        "job:\n" +
+        "  title: \"No Labels\"\n" +
+        "  org: \"myorg\"\n" +
+        "repos:\n" +
+        "  - \"repo-a\"\n" +
+        "issue:\n" +
+        "  template: \"TEMPLATE_PLACEHOLDER\"\n"
+    let yamlPath = writeTempYaml yaml "body"
+    match parseFile yamlPath with
+    | Error e -> Assert.True(false, $"Expected Ok but got Error: {e}")
+    | Ok cfg  -> Assert.Empty(cfg.Labels)
+
+[<Fact>]
 let ``computeHash returns consistent hex string for same content`` () =
     let dir      = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
     Directory.CreateDirectory(dir) |> ignore

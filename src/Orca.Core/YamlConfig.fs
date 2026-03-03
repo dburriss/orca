@@ -77,11 +77,15 @@ let parseFile (path: string) : Result<JobConfig, string> =
                     Error $"Issue template file not found: {templatePath}"
                 else
                     let issueBody = File.ReadAllText(templatePath)
+                    let labels =
+                        if isNull (box root.issue.labels) then []
+                        else root.issue.labels |> Seq.toList
                     Ok { Org          = OrgName root.job.org
                          ProjectTitle = root.job.title
                          Repos        = root.repos |> Seq.map (fun r -> RepoName $"{root.job.org}/{r}") |> List.ofSeq
                          IssueTitle   = root.job.title
-                         IssueBody    = issueBody }
+                         IssueBody    = issueBody
+                         Labels       = labels }
         with ex ->
             Error $"Failed to parse YAML file '{path}': {ex.Message}"
 

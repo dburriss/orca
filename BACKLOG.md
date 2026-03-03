@@ -1,9 +1,9 @@
 # Notes
 
+- [x] flag to create labels if they don't exist
 - [ ] review codebase for duplication and refactor into shared utilities
 - [ ] refactor for testability and add unit tests using pure functions (calculations vs actions with side effects)
 - [ ] allow disabling assigning copilot to issues
-- [ ] flag to create labels if they don't exist
 - [ ] add a `--skip-lock` flag to `info` to bypass the lock file and fetch live state from GitHub
 - [ ] add a `--save-lock` flag to `info` to persist a new lock file
 - [ ] add a `generate` command to create a YAML config from a list of repos or orgs

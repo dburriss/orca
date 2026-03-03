@@ -192,14 +192,19 @@ type GhCliClient(ghToken: string) =
                 | Ok _    -> return Ok ()
             }
 
-        member this.CreateIssue repo title body =
+        member this.CreateIssue repo title body labels =
             async {
                 let (RepoName repoStr) = repo
                 // Write body to a temp file to avoid shell quoting issues
                 let tmpFile = System.IO.Path.GetTempFileName()
                 try
                     System.IO.File.WriteAllText(tmpFile, body)
-                    match! runGh ghToken $"issue create --repo {repoStr} --title \"{title}\" --body-file \"{tmpFile}\" --json number,url" with
+                    let labelPart =
+                        if List.isEmpty labels then ""
+                        else
+                            let flags = labels |> List.map (fun l -> $"--label \"{l}\"") |> String.concat " "
+                            $" {flags}"
+                    match! runGh ghToken $"issue create --repo {repoStr} --title \"{title}\" --body-file \"{tmpFile}\"{labelPart} --json number,url" with
                     | Error e -> return Error e
                     | Ok json ->
                         let el = JsonDocument.Parse(json).RootElement

@@ -59,7 +59,7 @@ let private processRepo
                     return Ok issue
                 | None ->
                     if verbose then eprintfn "[%s] Creating issue '%s'" repoStr config.IssueTitle
-                    return! client.CreateIssue repo config.IssueTitle config.IssueBody
+                    return! client.CreateIssue repo config.IssueTitle config.IssueBody config.Labels
             }
 
         match issueResult with
