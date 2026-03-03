@@ -1,6 +1,7 @@
 module Orca.Core.Tests.YamlConfigTests
 
 open System.IO
+open System.Text
 open Xunit
 open Orca.Core.YamlConfig
 open Orca.Core.Domain
@@ -133,3 +134,108 @@ let ``computeHash returns different hashes for different content`` () =
     let h1 = computeHash p1
     let h2 = computeHash p2
     Assert.NotEqual<string>(h1, h2)
+
+// ---------------------------------------------------------------------------
+// Pure function tests — no file I/O required
+// ---------------------------------------------------------------------------
+
+let private validYamlText =
+    "job:\n" +
+    "  title: \"My Job\"\n" +
+    "  org: \"acme\"\n" +
+    "repos:\n" +
+    "  - \"svc-a\"\n" +
+    "  - \"svc-b\"\n" +
+    "issue:\n" +
+    "  template: \"./issue.md\"\n" +
+    "  labels: [\"bug\", \"help wanted\"]\n"
+
+[<Fact>]
+let ``parse builds correct JobConfig from raw strings`` () =
+    match parse validYamlText "/any/path/issue.md" "Issue body text" with
+    | Error e -> Assert.True(false, $"Expected Ok but got Error: {e}")
+    | Ok cfg  ->
+        Assert.Equal(OrgName "acme", cfg.Org)
+        Assert.Equal("My Job", cfg.ProjectTitle)
+        Assert.Equal("My Job", cfg.IssueTitle)
+        Assert.Equal("Issue body text", cfg.IssueBody)
+        Assert.Equal(2, cfg.Repos.Length)
+        Assert.Contains(RepoName "acme/svc-a", cfg.Repos)
+        Assert.Contains(RepoName "acme/svc-b", cfg.Repos)
+
+[<Fact>]
+let ``parse prefixes all repos with org name`` () =
+    match parse validYamlText "" "body" with
+    | Error e -> Assert.True(false, $"Expected Ok: {e}")
+    | Ok cfg  ->
+        for (RepoName r) in cfg.Repos do
+            Assert.StartsWith("acme/", r)
+
+[<Fact>]
+let ``parse returns labels from YAML`` () =
+    match parse validYamlText "" "body" with
+    | Error e -> Assert.True(false, $"Expected Ok: {e}")
+    | Ok cfg  ->
+        Assert.Equal(2, cfg.Labels.Length)
+        Assert.Contains("bug", cfg.Labels)
+        Assert.Contains("help wanted", cfg.Labels)
+
+[<Fact>]
+let ``parse returns empty labels when section absent`` () =
+    let yaml =
+        "job:\n  title: \"T\"\n  org: \"o\"\n" +
+        "repos:\n  - \"r\"\n" +
+        "issue:\n  template: \"./t.md\"\n"
+    match parse yaml "" "body" with
+    | Error e -> Assert.True(false, $"Expected Ok: {e}")
+    | Ok cfg  -> Assert.Empty(cfg.Labels)
+
+[<Fact>]
+let ``parse returns error when job section is missing`` () =
+    let yaml = "repos:\n  - r\n"
+    Assert.True(Result.isError (parse yaml "" ""))
+
+[<Fact>]
+let ``parse returns error when repos list is empty`` () =
+    let yaml = "job:\n  title: \"T\"\n  org: \"o\"\nrepos: []\nissue:\n  template: \"./t.md\"\n"
+    Assert.True(Result.isError (parse yaml "" ""))
+
+[<Fact>]
+let ``parse returns error when issue section is missing`` () =
+    let yaml = "job:\n  title: \"T\"\n  org: \"o\"\nrepos:\n  - r\n"
+    Assert.True(Result.isError (parse yaml "" ""))
+
+[<Fact>]
+let ``parse returns error when title is blank`` () =
+    let yaml = "job:\n  title: \"\"\n  org: \"o\"\nrepos:\n  - r\nissue:\n  template: \"./t.md\"\n"
+    Assert.True(Result.isError (parse yaml "" ""))
+
+[<Fact>]
+let ``parse returns error when org is blank`` () =
+    let yaml = "job:\n  title: \"T\"\n  org: \"\"\nrepos:\n  - r\nissue:\n  template: \"./t.md\"\n"
+    Assert.True(Result.isError (parse yaml "" ""))
+
+[<Fact>]
+let ``hashBytes returns 64-char lowercase hex for any input`` () =
+    let bytes = Encoding.UTF8.GetBytes("hello world")
+    let result = hashBytes bytes
+    Assert.Equal(64, result.Length)
+    Assert.True(result |> Seq.forall (fun c -> (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')),
+                "Expected lowercase hex characters only")
+
+[<Fact>]
+let ``hashBytes returns same hash for identical bytes`` () =
+    let bytes = Encoding.UTF8.GetBytes("deterministic")
+    Assert.Equal(hashBytes bytes, hashBytes bytes)
+
+[<Fact>]
+let ``hashBytes returns different hash for different bytes`` () =
+    let h1 = hashBytes (Encoding.UTF8.GetBytes("foo"))
+    let h2 = hashBytes (Encoding.UTF8.GetBytes("bar"))
+    Assert.NotEqual<string>(h1, h2)
+
+[<Fact>]
+let ``hashBytes known SHA-256 value`` () =
+    // echo -n "" | sha256sum  => e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    let result = hashBytes [||]
+    Assert.Equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", result)

@@ -1,15 +1,106 @@
 module Orca.Auth.Tests.AppAuthTests
 
 open System
+open System.IdentityModel.Tokens.Jwt
 open Xunit
 open Orca.Auth.AppAuth
 open Orca.Auth.Tests.TestHelpers
 
 // ---------------------------------------------------------------------------
-// resolveConfig — env var override tests
+// resolveConfigWith — pure env var override tests (no env mutation needed)
 // ---------------------------------------------------------------------------
 
-/// Returns a set of env vars that provide a complete App config without any file.
+/// Minimal getEnv that returns values from a fixed lookup table.
+let private fakeEnv (pairs: (string * string) list) (name: string) : string option =
+    pairs |> List.tryFind (fst >> (=) name) |> Option.map snd
+
+let private allAppEnvPairs =
+    [ "ORCA_APP_ID",              "app-123"
+      "ORCA_APP_INSTALLATION_ID", "install-456"
+      "ORCA_APP_KEY_PATH",        "/tmp/key.pem" ]
+
+let private noFileConfig () : Result<AppAuthConfig, string> =
+    Error "no stored config"
+
+[<Fact>]
+let ``resolveConfigWith succeeds when all fields provided via getEnv`` () =
+    let result = resolveConfigWith (fakeEnv allAppEnvPairs) noFileConfig
+    match result with
+    | Error e -> Assert.Fail($"Expected Ok but got Error: {e}")
+    | Ok cfg  ->
+        Assert.Equal("app-123",      cfg.AppId)
+        Assert.Equal("install-456",  cfg.InstallationId)
+        Assert.Equal("/tmp/key.pem", cfg.PrivateKeyPath)
+
+[<Fact>]
+let ``resolveConfigWith uses ORCA_APP_ID over stored value`` () =
+    let stored () = Ok { AppId = "stored-id"; PrivateKeyPath = "/tmp/key.pem"; InstallationId = "install-456" }
+    let result = resolveConfigWith (fakeEnv ["ORCA_APP_ID", "env-app-id"
+                                             "ORCA_APP_INSTALLATION_ID", "install-456"
+                                             "ORCA_APP_KEY_PATH", "/tmp/key.pem"]) stored
+    match result with
+    | Error e -> Assert.Fail($"Expected Ok: {e}")
+    | Ok cfg  -> Assert.Equal("env-app-id", cfg.AppId)
+
+[<Fact>]
+let ``resolveConfigWith uses ORCA_APP_INSTALLATION_ID over stored value`` () =
+    let stored () = Ok { AppId = "app-123"; PrivateKeyPath = "/tmp/key.pem"; InstallationId = "stored-install" }
+    let result = resolveConfigWith (fakeEnv ["ORCA_APP_ID", "app-123"
+                                             "ORCA_APP_INSTALLATION_ID", "env-install-id"
+                                             "ORCA_APP_KEY_PATH", "/tmp/key.pem"]) stored
+    match result with
+    | Error e -> Assert.Fail($"Expected Ok: {e}")
+    | Ok cfg  -> Assert.Equal("env-install-id", cfg.InstallationId)
+
+[<Fact>]
+let ``resolveConfigWith uses ORCA_APP_KEY_PATH over stored value`` () =
+    let stored () = Ok { AppId = "app-123"; PrivateKeyPath = "/stored/key.pem"; InstallationId = "install-456" }
+    let result = resolveConfigWith (fakeEnv ["ORCA_APP_ID", "app-123"
+                                             "ORCA_APP_INSTALLATION_ID", "install-456"
+                                             "ORCA_APP_KEY_PATH", "/env/key.pem"]) stored
+    match result with
+    | Error e -> Assert.Fail($"Expected Ok: {e}")
+    | Ok cfg  -> Assert.Equal("/env/key.pem", cfg.PrivateKeyPath)
+
+[<Fact>]
+let ``resolveConfigWith returns error when App ID is missing`` () =
+    let result = resolveConfigWith (fakeEnv ["ORCA_APP_INSTALLATION_ID", "install-456"
+                                             "ORCA_APP_KEY_PATH", "/tmp/key.pem"]) noFileConfig
+    match result with
+    | Ok _    -> Assert.Fail("Expected Error when App ID is missing")
+    | Error e -> Assert.Contains("App ID", e)
+
+[<Fact>]
+let ``resolveConfigWith returns error when Installation ID is missing`` () =
+    let result = resolveConfigWith (fakeEnv ["ORCA_APP_ID", "app-123"
+                                             "ORCA_APP_KEY_PATH", "/tmp/key.pem"]) noFileConfig
+    match result with
+    | Ok _    -> Assert.Fail("Expected Error when Installation ID is missing")
+    | Error e -> Assert.Contains("Installation ID", e)
+
+[<Fact>]
+let ``resolveConfigWith returns error when private key is missing`` () =
+    let result = resolveConfigWith (fakeEnv ["ORCA_APP_ID", "app-123"
+                                             "ORCA_APP_INSTALLATION_ID", "install-456"]) noFileConfig
+    match result with
+    | Ok _    -> Assert.Fail("Expected Error when private key is missing")
+    | Error e -> Assert.Contains("key", e.ToLowerInvariant())
+
+[<Fact>]
+let ``resolveConfigWith falls back to stored config when env vars absent`` () =
+    let stored () = Ok { AppId = "stored-app"; PrivateKeyPath = "/stored/k.pem"; InstallationId = "stored-install" }
+    let result = resolveConfigWith (fakeEnv []) stored
+    match result with
+    | Error e -> Assert.Fail($"Expected Ok: {e}")
+    | Ok cfg  ->
+        Assert.Equal("stored-app",     cfg.AppId)
+        Assert.Equal("stored-install", cfg.InstallationId)
+        Assert.Equal("/stored/k.pem",  cfg.PrivateKeyPath)
+
+// ---------------------------------------------------------------------------
+// resolveConfig — keep existing env-mutation-based integration tests
+// ---------------------------------------------------------------------------
+
 let private allAppEnvVars () =
     [ "ORCA_APP_ID",              Some "app-123"
       "ORCA_APP_INSTALLATION_ID", Some "install-456"
@@ -26,94 +117,116 @@ let ``resolveConfig succeeds when all fields provided via env vars`` () =
             Assert.Equal("install-456",   cfg.InstallationId)
             Assert.Equal("/tmp/key.pem",  cfg.PrivateKeyPath))
 
-[<Fact>]
-let ``resolveConfig uses ORCA_APP_ID over stored value`` () =
-    withEnvVars
-        [ "ORCA_APP_ID",              Some "env-app-id"
-          "ORCA_APP_INSTALLATION_ID", Some "install-456"
-          "ORCA_APP_KEY_PATH",        Some "/tmp/key.pem" ]
-        (fun () ->
-            let result = resolveConfig ()
-            match result with
-            | Error e -> Assert.Fail($"Expected Ok but got Error: {e}")
-            | Ok cfg  -> Assert.Equal("env-app-id", cfg.AppId))
-
-[<Fact>]
-let ``resolveConfig uses ORCA_APP_INSTALLATION_ID over stored value`` () =
-    withEnvVars
-        [ "ORCA_APP_ID",              Some "app-123"
-          "ORCA_APP_INSTALLATION_ID", Some "env-install-id"
-          "ORCA_APP_KEY_PATH",        Some "/tmp/key.pem" ]
-        (fun () ->
-            let result = resolveConfig ()
-            match result with
-            | Error e -> Assert.Fail($"Expected Ok but got Error: {e}")
-            | Ok cfg  -> Assert.Equal("env-install-id", cfg.InstallationId))
-
-[<Fact>]
-let ``resolveConfig uses ORCA_APP_KEY_PATH over stored value`` () =
-    withEnvVars
-        [ "ORCA_APP_ID",              Some "app-123"
-          "ORCA_APP_INSTALLATION_ID", Some "install-456"
-          "ORCA_APP_KEY_PATH",        Some "/tmp/env-key.pem" ]
-        (fun () ->
-            let result = resolveConfig ()
-            match result with
-            | Error e -> Assert.Fail($"Expected Ok but got Error: {e}")
-            | Ok cfg  -> Assert.Equal("/tmp/env-key.pem", cfg.PrivateKeyPath))
-
-[<Fact>]
-let ``resolveConfig returns error when App ID is missing`` () =
-    withEnvVars
-        [ "ORCA_APP_ID",              None
-          "ORCA_APP_INSTALLATION_ID", Some "install-456"
-          "ORCA_APP_KEY_PATH",        Some "/tmp/key.pem" ]
-        (fun () ->
-            let result = resolveConfig ()
-            match result with
-            | Ok _    -> Assert.Fail("Expected Error when App ID is missing")
-            | Error e -> Assert.Contains("App ID", e))
-
-[<Fact>]
-let ``resolveConfig returns error when Installation ID is missing`` () =
-    withEnvVars
-        [ "ORCA_APP_ID",              Some "app-123"
-          "ORCA_APP_INSTALLATION_ID", None
-          "ORCA_APP_KEY_PATH",        Some "/tmp/key.pem" ]
-        (fun () ->
-            let result = resolveConfig ()
-            match result with
-            | Ok _    -> Assert.Fail("Expected Error when Installation ID is missing")
-            | Error e -> Assert.Contains("Installation ID", e))
-
-[<Fact>]
-let ``resolveConfig returns error when private key is missing`` () =
-    withEnvVars
-        [ "ORCA_APP_ID",              Some "app-123"
-          "ORCA_APP_INSTALLATION_ID", Some "install-456"
-          "ORCA_APP_KEY_PATH",        None
-          "ORCA_APP_PRIVATE_KEY",     None ]
-        (fun () ->
-            let result = resolveConfig ()
-            match result with
-            | Ok _    -> Assert.Fail("Expected Error when private key is missing")
-            | Error e -> Assert.Contains("key", e.ToLowerInvariant()))
-
 // ---------------------------------------------------------------------------
-// AppAuthContext.GetToken — ORCA_APP_PRIVATE_KEY raw PEM env var
+// generateJwtAt — pure tests with a known RSA key and fixed timestamp
 // ---------------------------------------------------------------------------
 
+// Minimal 2048-bit RSA key for testing only (PKCS#8 PEM).
+let private testPem = """-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCa+b9XQeeRJ/a7
+4Ft1Lk1W9ZWb7k8WxJGdPP9XLlqKyBDZy/8I4ukl6DGEKaPVS3kZdd9jo+GcyOu5
+D7tIVTvMT0xJQmhpPr6rWTnWz7APs71KdjNeJYcRvOiZ2jK9r9IQljrCLlyPf2wH
+ej6T1hsJfdnwjb/yeG4HpZ9HAA8u+7/p5VEpOqN3elxs7YlgyvTMMK2AeCrojepJ
+h5N73lV5VScP+eCTkFpP93Avgpww7an+Y0V8+Xcv/jhFqYbtjf/ZMTeyvmH6h/Np
+tUAPRrPFzT3dU/1+Atgc6f3v+LN8mLQqkvoZMtE3kixjx7kaJAFgJCeR6thYmqPD
+chljcN/TAgMBAAECggEAJfpzQhJ0CbYF+Ke0MgTNTjSz27ksZ5N3bdWfa4GADceW
+nZEo6EgXQ8NhsxYzQJeUz0D8JCJqrS3t2nW4+zJsC5cZRlDAXp5SQpKEophV+Jsf
+FcrersE6lwW46M84pRSbwZXXQ3PyGfZrhm+WO0t6Z7qQOKu8MNMDf9s+K7uffO8x
+7q6WnDxbbwC9XSzBq8F3ohHwxBg1O6JM0kBYxYLej2I+po2z2HDCPr1Mf+pglQU0
+cttkZkOAu/Fx6HibV9JUr8xQdaSad9/iy4X4yWzG6yufaavAWCV/vEh4tz0so7He
+6x83AAcmnjfYzasIbKVRa6l0zR1J4i3uf3w58E52IQKBgQDY+1Pdkpb4V8ASyFNc
+MWSSjNKOKbj1iXZ+TnKaHWHHAyXpBtyIdRvQw/sFQeCgIUcz6OaD1SA8IO39JC69
+LNTWsOWZ1t1koh7eLxr1qIn1eXj9r0FXONjFK0Su1zBJHrCbKAofB4wvJggA0QdR
+8gq3hXcrXztc/3GsawKIJdjoIQKBgQC21/09QLFdrtkFhqI2bApZfPEQvtd6vmDv
+wPJywqZJGpcKkca2oZ0Vwrr1FyRKu7kWW16gVMe8pEfCZ5UTXyEozf8ueQcTagzU
+PHKMRh2Ye2P3SG0z7Zwj/KottzWnAvhm+KJHFKUqD3XMhDWM7lJFn12vgsXw4WA7
+/8qZsCl5cwKBgQC+kWXj6XZMoQ0hse18wCi7iZD3qO84P0XhwtZmQr34guxN0Gfq
+NSh731RdFrHJEdEuZzPlv05zYNyEgr3GClTYRj8xMQP6+WQw8aA095RLEyfPbpft
+mhDQgqLtCDPxVFH5w124SPG3CyjmRq+uKe19p2u1nQtPL07QBqAPoWXy4QKBgH7q
+sDK7XCJuQuBOEvz5w7lYO7Dm94WQ7pKdeO1l5azq0xsYEzokNnirYcDMnnltks1N
+AQMDtl1gHxt3cQgwSUEctFva0KmOPHd5uf1akiKMy9gTIxIfhfmI4cu313slWa2I
+OoRidT8b2iXrQ4yexObk90/j02gf2P/szwIdQLy3AoGBAIca7SP30GwxvjIejUpB
+Omc1MQ1z8WsYvfJWEvG7aDa/uDpU3sclFNEs3gPYpyoMOlJr2EzqpCBkQDCt/zzK
+mdyIOOc+CZMhWDNkHWvRerHywvqzWkvN//zAkkoPlNU/9sOWIc1U1BCYnte9v8OF
+pFGDL5VHXkN5wfx1/o2C8pUL
+-----END PRIVATE KEY-----"""
+
+let private fixedNow = DateTimeOffset.UtcNow.AddHours(1.0)
+
 [<Fact>]
-let ``AppAuthContext GetToken uses ORCA_APP_PRIVATE_KEY raw PEM instead of key file`` () =
-    // We don't have a real key, so we provide a clearly invalid PEM.
-    // The test verifies the env var was read (the error will be a JWT generation
-    // failure, not a file-not-found error).
-    withEnv "ORCA_APP_PRIVATE_KEY" (Some "not-a-real-pem") (fun () ->
-        let config = { AppId = "app-123"; PrivateKeyPath = "/nonexistent/key.pem"; InstallationId = "install-456" }
-        let ctx = AppAuthContext(config) :> Orca.Core.AuthContext.IAuthContext
-        let result = ctx.GetToken() |> Async.RunSynchronously
-        match result with
-        | Ok _    -> Assert.Fail("Expected error with invalid PEM content")
-        | Error e ->
-            // Should fail during JWT generation, not file I/O
-            Assert.DoesNotContain("nonexistent", e))
+let ``generateJwtAt returns Ok with a valid JWT for a real RSA key`` () =
+    match generateJwtAt fixedNow "my-app-123" testPem with
+    | Error e  -> Assert.Fail($"Expected Ok but got Error: {e}")
+    | Ok token ->
+        // A JWT has three dot-separated base64url segments
+        let parts = token.Split('.')
+        Assert.Equal(3, parts.Length)
+
+[<Fact>]
+let ``generateJwtAt JWT contains correct issuer claim`` () =
+    match generateJwtAt fixedNow "my-app-123" testPem with
+    | Error e  -> Assert.Fail($"Expected Ok: {e}")
+    | Ok token ->
+        let handler = JwtSecurityTokenHandler()
+        let jwt     = handler.ReadJwtToken(token)
+        Assert.Equal("my-app-123", jwt.Issuer)
+
+[<Fact>]
+let ``generateJwtAt JWT iat is 60 seconds before now`` () =
+    match generateJwtAt fixedNow "my-app-123" testPem with
+    | Error e  -> Assert.Fail($"Expected Ok: {e}")
+    | Ok token ->
+        let handler  = JwtSecurityTokenHandler()
+        let jwt      = handler.ReadJwtToken(token)
+        let expected = fixedNow.AddSeconds(-60.0).ToUnixTimeSeconds()
+        let actual   = DateTimeOffset(jwt.IssuedAt, TimeSpan.Zero).ToUnixTimeSeconds()
+        Assert.Equal(expected, actual)
+
+[<Fact>]
+let ``generateJwtAt JWT exp is 10 minutes after now`` () =
+    match generateJwtAt fixedNow "my-app-123" testPem with
+    | Error e  -> Assert.Fail($"Expected Ok: {e}")
+    | Ok token ->
+        let handler  = JwtSecurityTokenHandler()
+        let jwt      = handler.ReadJwtToken(token)
+        let expected = fixedNow.AddMinutes(10.0).ToUnixTimeSeconds()
+        let actual   = DateTimeOffset(jwt.ValidTo, TimeSpan.Zero).ToUnixTimeSeconds()
+        Assert.Equal(expected, actual)
+
+[<Fact>]
+let ``generateJwtAt returns error for invalid PEM`` () =
+    match generateJwtAt fixedNow "app-id" "not-a-valid-pem" with
+    | Ok _    -> Assert.Fail("Expected Error for invalid PEM")
+    | Error e -> Assert.Contains("Failed to generate JWT", e)
+
+// ---------------------------------------------------------------------------
+// AppAuthContext.GetToken — getEnv injection tests (no file I/O, no env mutation)
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``AppAuthContext GetToken uses ORCA_APP_PRIVATE_KEY from getEnv instead of key file`` () =
+    // Provide an invalid PEM via getEnv — should fail at JWT generation, not file I/O.
+    let getEnv name =
+        match name with
+        | "ORCA_APP_PRIVATE_KEY" -> Some "not-a-real-pem"
+        | _                      -> None
+    let config = { AppId = "app-123"; PrivateKeyPath = "/nonexistent/key.pem"; InstallationId = "install-456" }
+    // readFile should never be called when the env var is set
+    let readFile _ = failwith "readFile should not be called"
+    let ctx = AppAuthContext(config, getEnv, readFile) :> Orca.Core.AuthContext.IAuthContext
+    let result = ctx.GetToken() |> Async.RunSynchronously
+    match result with
+    | Ok _    -> Assert.Fail("Expected error with invalid PEM content")
+    | Error e -> Assert.DoesNotContain("nonexistent", e)
+
+[<Fact>]
+let ``AppAuthContext GetToken falls back to readFile when env var absent`` () =
+    let getEnv _ = None  // no env var
+    let config = { AppId = "app-123"; PrivateKeyPath = "/some/key.pem"; InstallationId = "install-456" }
+    let mutable readFileCalled = false
+    let readFile _ =
+        readFileCalled <- true
+        "not-a-real-pem"  // will fail at JWT generation
+    let ctx = AppAuthContext(config, getEnv, readFile) :> Orca.Core.AuthContext.IAuthContext
+    let _ = ctx.GetToken() |> Async.RunSynchronously
+    Assert.True(readFileCalled, "Expected readFile to be called when env var is absent")

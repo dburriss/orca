@@ -100,3 +100,74 @@ let ``write round-trips issue assignees`` () =
     | Some read ->
         let issue = read.Issues |> List.head
         Assert.Contains("copilot", issue.Assignees)
+
+// ---------------------------------------------------------------------------
+// DTO mapping — tested via round-trip with specific field assertions
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``round-trip preserves all repo names`` () =
+    let dir  = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
+    Directory.CreateDirectory(dir) |> ignore
+    let path = Path.Combine(dir, "job.yml")
+    let lock = sampleLock ()
+    write path lock
+    match tryRead path with
+    | None      -> Assert.Fail("Expected Some")
+    | Some read ->
+        Assert.Equal<string list>(
+            lock.Repos |> List.map (fun (RepoName r) -> r),
+            read.Repos |> List.map (fun (RepoName r) -> r))
+
+[<Fact>]
+let ``round-trip preserves issue number and URL`` () =
+    let dir  = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
+    Directory.CreateDirectory(dir) |> ignore
+    let path = Path.Combine(dir, "job.yml")
+    write path (sampleLock ())
+    match tryRead path with
+    | None      -> Assert.Fail("Expected Some")
+    | Some read ->
+        let issue = read.Issues |> List.head
+        Assert.Equal(IssueNumber 7, issue.Number)
+        Assert.Equal("https://github.com/myorg/repo-a/issues/7", issue.Url)
+
+[<Fact>]
+let ``round-trip preserves PR number, URL, and closesIssue`` () =
+    let dir  = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
+    Directory.CreateDirectory(dir) |> ignore
+    let path = Path.Combine(dir, "job.yml")
+    write path (sampleLock ())
+    match tryRead path with
+    | None      -> Assert.Fail("Expected Some")
+    | Some read ->
+        let pr = read.PullRequests |> List.head
+        Assert.Equal(PrNumber 3, pr.Number)
+        Assert.Equal("https://github.com/myorg/repo-a/pull/3", pr.Url)
+        Assert.Equal(IssueNumber 7, pr.ClosesIssue)
+
+[<Fact>]
+let ``round-trip preserves project org, title, number, and URL`` () =
+    let dir  = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
+    Directory.CreateDirectory(dir) |> ignore
+    let path = Path.Combine(dir, "job.yml")
+    let lock = sampleLock ()
+    write path lock
+    match tryRead path with
+    | None      -> Assert.Fail("Expected Some")
+    | Some read ->
+        Assert.Equal(lock.Project.Org,    read.Project.Org)
+        Assert.Equal(lock.Project.Number, read.Project.Number)
+        Assert.Equal(lock.Project.Title,  read.Project.Title)
+        Assert.Equal(lock.Project.Url,    read.Project.Url)
+
+[<Fact>]
+let ``round-trip preserves yaml hash`` () =
+    let dir  = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
+    Directory.CreateDirectory(dir) |> ignore
+    let path = Path.Combine(dir, "job.yml")
+    let lock = { sampleLock () with YamlHash = "deadbeefcafe1234" }
+    write path lock
+    match tryRead path with
+    | None      -> Assert.Fail("Expected Some")
+    | Some read -> Assert.Equal("deadbeefcafe1234", read.YamlHash)

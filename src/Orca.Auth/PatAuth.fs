@@ -24,12 +24,13 @@ let storeToken (token: string) : Result<unit, string> =
           InstallationId = None }
 
 /// Load the previously stored PAT token.
-/// Checks the ORCA_PAT environment variable first; falls back to the stored config file.
-let loadToken () : Result<string, string> =
-    match Environment.GetEnvironmentVariable("ORCA_PAT") |> Option.ofObj with
-    | Some t when t.Length > 0 -> Ok t
-    | _ ->
-        readConfig ()
+/// `getEnv` is called with "ORCA_PAT" first; falls back to the stored config file.
+/// Pass `Environment.GetEnvironmentVariable >> Option.ofObj` for production.
+let loadTokenWith (getEnv: string -> string option) (readCfg: unit -> Result<AuthConfigFile, string>) : Result<string, string> =
+    match getEnv "ORCA_PAT" |> Option.bind (fun s -> if s.Length > 0 then Some s else None) with
+    | Some t -> Ok t
+    | None   ->
+        readCfg ()
         |> Result.bind (fun cfg ->
             if cfg.Type <> "pat" then
                 Error "Auth config is not a PAT config. Run 'orca auth pat --token <tok>' first."
@@ -37,6 +38,11 @@ let loadToken () : Result<string, string> =
                 match cfg.Token with
                 | Some t when t.Length > 0 -> Ok t
                 | _ -> Error "PAT token is missing from auth config.")
+
+/// Load the previously stored PAT token.
+/// Checks the ORCA_PAT environment variable first; falls back to the stored config file.
+let loadToken () : Result<string, string> =
+    loadTokenWith (Environment.GetEnvironmentVariable >> Option.ofObj) readConfig
 
 /// IAuthContext implementation backed by a stored PAT.
 type PatAuthContext() =

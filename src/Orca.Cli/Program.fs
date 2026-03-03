@@ -21,7 +21,8 @@ open Orca.Core.Domain
 ///   2. Stored App config  (env vars or ~/.config/orca/auth.json type=app)
 ///   3. GH_TOKEN environment variable
 ///   4. gh CLI ambient auth  (gh auth token)
-let private resolveAuthContext () : Result<Orca.Core.AuthContext.IAuthContext, string> =
+/// `getEnv` is injected so the env-var reads are testable without mutation.
+let resolveAuthContextWith (getEnv: string -> string option) : Result<Orca.Core.AuthContext.IAuthContext, string> =
     // 1. Try PAT
     match loadToken () with
     | Ok _ -> Ok (PatAuthContext() :> Orca.Core.AuthContext.IAuthContext)
@@ -31,11 +32,11 @@ let private resolveAuthContext () : Result<Orca.Core.AuthContext.IAuthContext, s
         | Ok appCfg -> Ok (AppAuthContext(appCfg) :> Orca.Core.AuthContext.IAuthContext)
         | Error _ ->
             // 3. Fallback: GH_TOKEN env var
-            match Environment.GetEnvironmentVariable("GH_TOKEN") |> Option.ofObj with
-            | Some t when t.Length > 0 ->
+            match getEnv "GH_TOKEN" |> Option.bind (fun t -> if t.Length > 0 then Some t else None) with
+            | Some t ->
                 Ok ({ new Orca.Core.AuthContext.IAuthContext with
                           member _.GetToken() = async { return Ok t } })
-            | _ ->
+            | None ->
                 // 4. Fallback: gh CLI ambient auth (gh auth token)
                 try
                     let struct(token, _) =
@@ -51,6 +52,9 @@ let private resolveAuthContext () : Result<Orca.Core.AuthContext.IAuthContext, s
                         Error "No GitHub credentials found. Run 'orca auth pat --token <tok>' or set GH_TOKEN."
                 with _ ->
                     Error "No GitHub credentials found. Run 'orca auth pat --token <tok>' or set GH_TOKEN."
+
+let private resolveAuthContext () =
+    resolveAuthContextWith (Environment.GetEnvironmentVariable >> Option.ofObj)
 
 /// Resolve auth, obtain a token, create the gh client, and invoke `f`.
 /// Returns 1 on any auth failure, otherwise returns the result of `f`.
@@ -87,11 +91,11 @@ let private printInfoResult (result: InfoResult) =
     let row (label: string) (value: string) =
         grid.AddRow([| Markup($"[bold]{label}[/]") :> Rendering.IRenderable; Markup(value) |]) |> ignore
 
+    row "Project"   $"[link={result.Lock.Project.Url}]{orgStr} / {Markup.Escape(result.Lock.Project.Title)}[/] [dim](#{result.Lock.Project.Number})[/]"
+    row "URL"       $"[dim]{result.Lock.Project.Url}[/]"
     row "Source"    sourceLabel
     row "Locked at" (result.Lock.LockedAt.ToString("u"))
     row "YAML hash" $"[dim]{result.Lock.YamlHash}[/]"
-    row "Project"   $"[link={result.Lock.Project.Url}]{orgStr} / {Markup.Escape(result.Lock.Project.Title)}[/] [dim](#{result.Lock.Project.Number})[/]"
-    row "URL"       $"[dim]{result.Lock.Project.Url}[/]"
     row "Repos"     (string (List.length result.Lock.Repos))
     row "Issues"    (string (List.length result.Lock.Issues))
     row "PRs"       (string (List.length result.Lock.PullRequests))
