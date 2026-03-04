@@ -105,7 +105,7 @@ let buildFormPage (githubUrl: string) (manifest: string) : string =
 /// Parse the app ID, PEM, name, and webhook secret from the GitHub manifest
 /// conversion API response JSON.
 /// Pure.
-let parseConversionResponse (json: string) : Result<{| Id: string; Name: string; Slug: string; Pem: string; WebhookSecret: string option |}, string> =
+let parseConversionResponse (json: string) : Result<{| Id: string; Name: string; Slug: string; OwnerLogin: string; OwnerIsOrg: bool; Pem: string; WebhookSecret: string option |}, string> =
     try
         let doc = JsonDocument.Parse(json)
         let root = doc.RootElement
@@ -125,10 +125,23 @@ let parseConversionResponse (json: string) : Result<{| Id: string; Name: string;
             match root.TryGetProperty("webhook_secret") with
             | true, el when el.ValueKind = JsonValueKind.String -> el.GetString() |> Option.ofObj
             | _ -> None
+        let ownerLogin, ownerIsOrg =
+            match root.TryGetProperty("owner") with
+            | true, owner ->
+                let login =
+                    match owner.TryGetProperty("login") with
+                    | true, el -> el.GetString() |> Option.ofObj |> Option.defaultValue ""
+                    | _        -> ""
+                let isOrg =
+                    match owner.TryGetProperty("type") with
+                    | true, el -> el.GetString() = "Organization"
+                    | _        -> false
+                login, isOrg
+            | _ -> "", false
         match idNum, str "name", str "pem" with
         | Some id, Some name, Some pem ->
             let slug = str "slug" |> Option.defaultValue name
-            Ok {| Id = id; Name = name; Slug = slug; Pem = pem; WebhookSecret = webhookSecret |}
+            Ok {| Id = id; Name = name; Slug = slug; OwnerLogin = ownerLogin; OwnerIsOrg = ownerIsOrg; Pem = pem; WebhookSecret = webhookSecret |}
         | None, _, _ -> Error $"Missing 'id' in conversion response: {json}"
         | _, None, _ -> Error $"Missing 'name' in conversion response: {json}"
         | _, _, None -> Error $"Missing 'pem' in conversion response: {json}"
@@ -338,7 +351,8 @@ let execute (input: CreateAppInput) : Async<Result<CreatedApp, string>> =
         | Error e -> return Error e
         | Ok ()   ->
 
-        let permissionsUrl = buildPermissionsUrl input.Org app.Slug
+        let ownerOrg = if app.OwnerIsOrg then Some app.OwnerLogin else None
+        let permissionsUrl = buildPermissionsUrl ownerOrg app.Slug
 
         printfn ""
         printfn "ACTION REQUIRED: Grant organisation project permissions"

@@ -96,6 +96,7 @@ let private validJson = """
   "id": 123456,
   "name": "Orca App",
   "slug": "orca-app",
+  "owner": { "login": "my-org", "type": "Organization" },
   "pem": "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----\n",
   "webhook_secret": "abc123secret"
 }
@@ -109,8 +110,19 @@ let ``parseConversionResponse extracts all fields from valid JSON`` () =
         Assert.Equal("123456",     app.Id)
         Assert.Equal("Orca App",   app.Name)
         Assert.Equal("orca-app",   app.Slug)
+        Assert.Equal("my-org",     app.OwnerLogin)
+        Assert.True(app.OwnerIsOrg)
         Assert.Contains("PRIVATE", app.Pem)
         Assert.Equal(Some "abc123secret", app.WebhookSecret)
+
+[<Fact>]
+let ``parseConversionResponse sets OwnerIsOrg false for User owner`` () =
+    let json = """{"id":1,"name":"orca","slug":"orca","owner":{"login":"alice","type":"User"},"pem":"key","webhook_secret":"s"}"""
+    match parseConversionResponse json with
+    | Error e -> Assert.Fail($"Expected Ok but got Error: {e}")
+    | Ok app  ->
+        Assert.Equal("alice", app.OwnerLogin)
+        Assert.False(app.OwnerIsOrg)
 
 [<Fact>]
 let ``parseConversionResponse falls back to name when slug is absent`` () =
@@ -118,6 +130,15 @@ let ``parseConversionResponse falls back to name when slug is absent`` () =
     match parseConversionResponse json with
     | Error e -> Assert.Fail($"Expected Ok but got Error: {e}")
     | Ok app  -> Assert.Equal("orca", app.Slug)
+
+[<Fact>]
+let ``parseConversionResponse sets empty owner fields when owner is absent`` () =
+    let json = """{"id":1,"name":"orca","pem":"key"}"""
+    match parseConversionResponse json with
+    | Error e -> Assert.Fail($"Expected Ok but got Error: {e}")
+    | Ok app  ->
+        Assert.Equal("", app.OwnerLogin)
+        Assert.False(app.OwnerIsOrg)
 
 [<Fact>]
 let ``parseConversionResponse treats null webhook_secret as None`` () =
