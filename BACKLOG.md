@@ -18,6 +18,8 @@
 - [x] add `json` to `run` output to emit list of created resources
 - [x] add a `--force` flag to `cleanup` to skip confirmation prompt
 - [ ] investigate a testable file system package to allow for easier testing of file operations (e.g. creating lock files)
-- [ ] a global and local config file to store default values for flags (e.g. default labels to add, skip copilot assignment, etc.)
+- [ ] a global and local config file to store default values for flags (e.g. default labels to add, skip copilot assignment, app permissions, etc.)
 - [ ] skipProject option for cases where the user just wants to create issues without a project
 - [ ] add an assignees field to the YAML config to allow for assigning users or teams to issues instead of copilot. This could be a list of GitHub usernames or team slugs. If not provided, default to assigning copilot. Unless `--skip-copilot` is set, in which case no assignees will be added.
+- [ ] pem file saved with the app name <app_name>.pem for easier identification
+- [ ] security review of pat and pem file handling to ensure best practices are followed (e.g. least privilege, secure storage, etc.)
