@@ -20,3 +20,7 @@ run = "dotnet run --project src/Orca.Tool/ -- auth pat \"$@\""
 [tasks.auth-app]
 description = "Authenticate with a GitHub App"
 run = "dotnet run --project src/Orca.Tool/ -- auth app \"$@\""
+
+[tasks.auth-create-app]
+description = "Create a GitHub App and generate credentials for authentication"
+run = "dotnet run --project src/Orca.Tool/ -- auth create-app \"$@\""
