@@ -400,7 +400,7 @@ let main argv =
                             eprintfn "App config saved but validation failed: %s" e
                             1
             | Create_App createArgs ->
-                let appName = createArgs.TryGetResult(AuthCreateAppArgs.App_Name) |> Option.defaultValue "orca"
+                let appName = createArgs.TryGetResult(AuthCreateAppArgs.App_Name) |> Option.defaultValue "orca-gh-app"
                 let org     = createArgs.TryGetResult(AuthCreateAppArgs.Org)
                 let port    = createArgs.TryGetResult(AuthCreateAppArgs.Port) |> Option.defaultValue 9876
                 let input   = { AppName = appName; Org = org; Port = port }

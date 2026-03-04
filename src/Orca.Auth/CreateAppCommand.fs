@@ -43,7 +43,7 @@ type CreatedApp =
     { Id            : string
       Name          : string
       PemPath       : string
-      WebhookSecret : string }
+      WebhookSecret : string option }
 
 // ---------------------------------------------------------------------------
 // Pure helpers (testable without I/O)
@@ -101,7 +101,7 @@ let buildFormPage (githubUrl: string) (manifest: string) : string =
 /// Parse the app ID, PEM, name, and webhook secret from the GitHub manifest
 /// conversion API response JSON.
 /// Pure.
-let parseConversionResponse (json: string) : Result<{| Id: string; Name: string; Pem: string; WebhookSecret: string |}, string> =
+let parseConversionResponse (json: string) : Result<{| Id: string; Name: string; Pem: string; WebhookSecret: string option |}, string> =
     try
         let doc = JsonDocument.Parse(json)
         let root = doc.RootElement
@@ -117,13 +117,16 @@ let parseConversionResponse (json: string) : Result<{| Id: string; Name: string;
                 | JsonValueKind.String -> el.GetString() |> Option.ofObj
                 | _                   -> None
             | _ -> None
-        match idNum, str "name", str "pem", str "webhook_secret" with
-        | Some id, Some name, Some pem, Some secret ->
-            Ok {| Id = id; Name = name; Pem = pem; WebhookSecret = secret |}
-        | None, _, _, _ -> Error $"Missing 'id' in conversion response: {json}"
-        | _, None, _, _ -> Error $"Missing 'name' in conversion response: {json}"
-        | _, _, None, _ -> Error $"Missing 'pem' in conversion response: {json}"
-        | _, _, _, None -> Error $"Missing 'webhook_secret' in conversion response: {json}"
+        let webhookSecret =
+            match root.TryGetProperty("webhook_secret") with
+            | true, el when el.ValueKind = JsonValueKind.String -> el.GetString() |> Option.ofObj
+            | _ -> None
+        match idNum, str "name", str "pem" with
+        | Some id, Some name, Some pem ->
+            Ok {| Id = id; Name = name; Pem = pem; WebhookSecret = webhookSecret |}
+        | None, _, _ -> Error $"Missing 'id' in conversion response: {json}"
+        | _, None, _ -> Error $"Missing 'name' in conversion response: {json}"
+        | _, _, None -> Error $"Missing 'pem' in conversion response: {json}"
     with ex ->
         Error $"Failed to parse conversion response: {ex.Message}"
 
@@ -293,7 +296,7 @@ let openBrowser (url: string) : unit =
 let execute (input: CreateAppInput) : Async<Result<CreatedApp, string>> =
     async {
         let port        = input.Port
-        let appName     = if String.IsNullOrWhiteSpace(input.AppName) then "orca" else input.AppName
+        let appName     = if String.IsNullOrWhiteSpace(input.AppName) then "orca-gh-app" else input.AppName
         let callbackUrl = $"http://localhost:{port}/callback"
         let state       = Guid.NewGuid().ToString("N").[..7]   // short random state
 

@@ -108,7 +108,21 @@ let ``parseConversionResponse extracts all fields from valid JSON`` () =
         Assert.Equal("123456",     app.Id)
         Assert.Equal("orca",       app.Name)
         Assert.Contains("PRIVATE", app.Pem)
-        Assert.Equal("abc123secret", app.WebhookSecret)
+        Assert.Equal(Some "abc123secret", app.WebhookSecret)
+
+[<Fact>]
+let ``parseConversionResponse treats null webhook_secret as None`` () =
+    let json = """{"id":1,"name":"orca","pem":"key","webhook_secret":null}"""
+    match parseConversionResponse json with
+    | Error e -> Assert.Fail($"Expected Ok but got Error: {e}")
+    | Ok app  -> Assert.Equal(None, app.WebhookSecret)
+
+[<Fact>]
+let ``parseConversionResponse succeeds when webhook_secret is absent`` () =
+    let json = """{"id":1,"name":"orca","pem":"key"}"""
+    match parseConversionResponse json with
+    | Error e -> Assert.Fail($"Expected Ok but got Error: {e}")
+    | Ok app  -> Assert.Equal(None, app.WebhookSecret)
 
 [<Fact>]
 let ``parseConversionResponse returns Error when id is missing`` () =
