@@ -56,6 +56,20 @@ let ``buildGitHubUrl targets org when org is Some`` () =
     Assert.Contains("state=xyz", url)
 
 // ---------------------------------------------------------------------------
+// buildPermissionsUrl — pure
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``buildPermissionsUrl targets personal account when org is None`` () =
+    let url = buildPermissionsUrl None "my-app"
+    Assert.Equal("https://github.com/settings/apps/my-app/permissions", url)
+
+[<Fact>]
+let ``buildPermissionsUrl targets org when org is Some`` () =
+    let url = buildPermissionsUrl (Some "my-org") "my-app"
+    Assert.Equal("https://github.com/organizations/my-org/settings/apps/my-app/permissions", url)
+
+// ---------------------------------------------------------------------------
 // buildFormPage — pure
 // ---------------------------------------------------------------------------
 

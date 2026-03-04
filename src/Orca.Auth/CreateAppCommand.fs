@@ -330,6 +330,24 @@ let execute (input: CreateAppInput) : Async<Result<CreatedApp, string>> =
         | Error e -> return Error e
         | Ok ()   ->
 
+        let permissionsUrl = buildPermissionsUrl input.Org app.Name
+
+        printfn ""
+        printfn "ACTION REQUIRED: Grant organisation project permissions"
+        printfn "--------------------------------------------------------"
+        printfn "The GitHub App manifest flow cannot set organisation-level"
+        printfn "permissions. You must grant them manually:"
+        printfn ""
+        printfn "  1. The GitHub App permissions page will open in your browser."
+        printfn "  2. Scroll to 'Organization permissions'."
+        printfn "  3. Set 'Projects' to 'Read and write'."
+        printfn "  4. Click 'Save changes' and confirm."
+        printfn ""
+        printfn "  URL: %s" permissionsUrl
+        printfn ""
+
+        openBrowser permissionsUrl
+
         return Ok
             { Id            = app.Id
               Name          = app.Name
