@@ -17,3 +17,7 @@
 - [x] add `json` flag to `cleanup` to emit list of cleaned up resources. If `--dryrun` is also set, emit list of resources that would be cleaned up. Indicate with a boolean whether it is a dry run or not.
 - [x] add `json` to `run` output to emit list of created resources
 - [x] add a `--force` flag to `cleanup` to skip confirmation prompt
+- [ ] investigate a testable file system package to allow for easier testing of file operations (e.g. creating lock files)
+- [ ] a global and local config file to store default values for flags (e.g. default labels to add, skip copilot assignment, etc.)
+- [ ] skipProject option for cases where the user just wants to create issues without a project
+- [ ] add an assignees field to the YAML config to allow for assigning users or teams to issues instead of copilot. This could be a list of GitHub usernames or team slugs. If not provided, default to assigning copilot. Unless `--skip-copilot` is set, in which case no assignees will be added.
