@@ -89,6 +89,15 @@ orca auth create-app [--app-name <name>] [--org <org>] [--port <port>]
 | `--org` | No | Register the app under an organisation instead of your personal account |
 | `--port` | No | Local callback port for the OAuth redirect (default: `9876`) |
 
+This command automates app *registration* but app *installation* requires a manual step:
+
+1. **Automatic** — opens your browser, submits the app manifest to GitHub, exchanges the OAuth code for credentials, saves the private key to `~/.config/orca/app.pem` and writes `auth.json`. A second browser tab opens to the app's permissions page so you can grant the org-level **Projects: Read and write** permission (not settable via manifest).
+2. **Manual** — you must install the app on your org or account by clicking through the GitHub UI. Once installed, GitHub provides an installation ID.
+3. **Automatic (interactive)** — if running in a terminal, you are prompted to enter the installation ID immediately, which completes the `auth.json` configuration. In non-interactive (CI) mode, the install URL and the manual command to run are printed instead:
+   ```
+   orca auth app --app-id <id> --installation-id <id>
+   ```
+
 Credentials are stored in `~/.config/orca/auth.json` and validated immediately. Environment variables (`ORCA_PAT`, `ORCA_APP_ID`, etc.) override stored values at runtime without modifying the file.
 
 See [docs/app-auth.md](docs/app-auth.md) for setting up GitHub App authentication and [docs/AUTH-ENV-VARS.md](docs/AUTH-ENV-VARS.md) for environment variable reference.
