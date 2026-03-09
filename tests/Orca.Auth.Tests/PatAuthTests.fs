@@ -13,8 +13,14 @@ open Orca.Auth.Tests.TestHelpers
 
 let private noConfig () : Result<AuthConfigFile, string> = Error "no config"
 
-let private patConfig token : unit -> Result<AuthConfigFile, string> =
-    fun () -> Ok { Type = "pat"; Token = Some token; AppId = None; KeyPath = None; InstallationId = None }
+let private makeConfig (profileName: string) (entry: ProfileEntry) : unit -> Result<AuthConfigFile, string> =
+    fun () ->
+        let profiles = System.Collections.Generic.Dictionary<string, ProfileEntry>()
+        profiles.[profileName] <- entry
+        Ok { Active = profileName; Profiles = profiles }
+
+let private patConfig token =
+    makeConfig "pat" { Type = "pat"; Token = Some token; AppId = None; KeyPath = None; InstallationId = None }
 
 [<Fact>]
 let ``loadTokenWith returns token from getEnv when ORCA_PAT is set`` () =
@@ -32,9 +38,10 @@ let ``loadTokenWith returns error when env var absent and no config`` () =
     Assert.True(Result.isError (loadTokenWith getEnv noConfig))
 
 [<Fact>]
-let ``loadTokenWith returns error when config type is not pat`` () =
+let ``loadTokenWith returns error when active profile type is not pat`` () =
     let getEnv _ = None
-    let appConfig () = Ok { Type = "app"; Token = None; AppId = Some "id"; KeyPath = Some "/k"; InstallationId = Some "i" }
+    let appConfig =
+        makeConfig "my-app" { Type = "app"; Token = None; AppId = Some "id"; KeyPath = Some "/k"; InstallationId = Some "i" }
     match loadTokenWith getEnv appConfig with
     | Ok _    -> Assert.Fail("Expected error for non-PAT config")
     | Error e -> Assert.Contains("PAT", e)
@@ -42,7 +49,8 @@ let ``loadTokenWith returns error when config type is not pat`` () =
 [<Fact>]
 let ``loadTokenWith returns error when pat token in config is empty`` () =
     let getEnv _ = None
-    let emptyToken () = Ok { Type = "pat"; Token = Some ""; AppId = None; KeyPath = None; InstallationId = None }
+    let emptyToken =
+        makeConfig "pat" { Type = "pat"; Token = Some ""; AppId = None; KeyPath = None; InstallationId = None }
     Assert.True(Result.isError (loadTokenWith getEnv emptyToken))
 
 // ---------------------------------------------------------------------------
@@ -74,3 +82,4 @@ let ``loadToken returns error when ORCA_PAT absent and no config file exists`` (
         finally
             Environment.SetEnvironmentVariable("HOME", originalHome)
             if Directory.Exists(tmpHome) then Directory.Delete(tmpHome, true))
+

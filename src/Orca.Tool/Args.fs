@@ -86,16 +86,26 @@ type AuthCreateAppArgs =
             | Port _     -> "Local callback port for the OAuth redirect (default: 9876)."
 
 [<CliPrefix(CliPrefix.DoubleDash)>]
+type AuthSwitchArgs =
+    | [<MainCommand; Mandatory>] Profile of name: string
+    interface IArgParserTemplate with
+        member a.Usage =
+            match a with
+            | Profile _ -> "Name of the profile to switch to."
+
+[<CliPrefix(CliPrefix.DoubleDash)>]
 type AuthArgs =
     | [<CliPrefix(CliPrefix.None); SubCommand>] Pat        of ParseResults<AuthPatArgs>
     | [<CliPrefix(CliPrefix.None); SubCommand>] App        of ParseResults<AuthAppArgs>
     | [<CliPrefix(CliPrefix.None); SubCommand>] Create_App of ParseResults<AuthCreateAppArgs>
+    | [<CliPrefix(CliPrefix.None); SubCommand>] Switch     of ParseResults<AuthSwitchArgs>
     interface IArgParserTemplate with
         member a.Usage =
             match a with
             | Pat _        -> "Authenticate with a Personal Access Token."
             | App _        -> "Authenticate with a GitHub App."
             | Create_App _ -> "Register a new GitHub App via the manifest flow and store its credentials."
+            | Switch _     -> "Switch the active authentication profile."
 
 [<CliPrefix(CliPrefix.DoubleDash)>]
 type GenerateArgs =

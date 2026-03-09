@@ -7,21 +7,32 @@ open Orca.Auth.AuthConfig
 // ---------------------------------------------------------------------------
 // PAT (Personal Access Token) authentication.
 //
-// The token is stored in ~/.config/orca/auth.json as:
-//   { "type": "pat", "token": "ghp_..." }
+// The token is stored in ~/.config/orca/auth.json under the profile named
+// "pat", which is also set as the active profile:
+//   {
+//     "active": "pat",
+//     "profiles": {
+//       "pat": { "type": "pat", "token": "ghp_..." }
+//     }
+//   }
 //
-// On each command execution the token is read from disk and injected as
-// GH_TOKEN into gh subprocess calls.
+// On each command execution the token is read from the active profile and
+// injected as GH_TOKEN into gh subprocess calls.
 // ---------------------------------------------------------------------------
 
+/// Profile name used for PAT credentials.
+let private patProfileName = "pat"
+
 /// Store a PAT token for future use.
+/// Written under the profile named "pat", set as active.
 let storeToken (token: string) : Result<unit, string> =
-    writeConfig
+    let entry : ProfileEntry =
         { Type           = "pat"
           Token          = Some token
           AppId          = None
           KeyPath        = None
           InstallationId = None }
+    modifyConfig (fun cfg -> Ok (upsertProfile patProfileName entry cfg))
 
 /// Load the previously stored PAT token.
 /// `getEnv` is called with "ORCA_PAT" first; falls back to the stored config file.
@@ -31,11 +42,12 @@ let loadTokenWith (getEnv: string -> string option) (readCfg: unit -> Result<Aut
     | Some t -> Ok t
     | None   ->
         readCfg ()
-        |> Result.bind (fun cfg ->
-            if cfg.Type <> "pat" then
+        |> Result.bind getActiveProfile
+        |> Result.bind (fun profile ->
+            if profile.Type <> "pat" then
                 Error "Auth config is not a PAT config. Run 'orca auth pat --token <tok>' first."
             else
-                match cfg.Token with
+                match profile.Token with
                 | Some t when t.Length > 0 -> Ok t
                 | _ -> Error "PAT token is missing from auth config.")
 

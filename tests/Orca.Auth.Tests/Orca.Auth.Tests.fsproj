@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Include="TestHelpers.fs" />
+    <Compile Include="AuthConfigTests.fs" />
     <Compile Include="PatAuthTests.fs" />
     <Compile Include="AppAuthTests.fs" />
     <Compile Include="CreateAppCommandTests.fs" />

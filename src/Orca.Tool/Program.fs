@@ -8,6 +8,7 @@ open Spectre.Console
 open Orca.Tool.Args
 open Orca.Auth.PatAuth
 open Orca.Auth.AppAuth
+open Orca.Auth.AuthConfig
 open Orca.Auth.CreateAppCommand
 open Orca.Core.Deps
 open Orca.Core.InfoCommand
@@ -376,7 +377,9 @@ let main argv =
                 let key            = appArgs.GetResult(AuthAppArgs.Key)
                 let installationId = appArgs.GetResult(AuthAppArgs.Installation_Id)
                 let config         = { AppId = appId; PrivateKeyPath = key; InstallationId = installationId }
-                match storeConfig config with
+                // Profile name is derived from the App ID.
+                let profileName    = appId
+                match storeConfig profileName config with
                 | Error e ->
                     eprintfn "Error saving App config: %s" e
                     1
@@ -431,7 +434,7 @@ let main argv =
                         if not (String.IsNullOrWhiteSpace(line)) then
                             let installId = line.Trim()
                             let cfg = { AppId = created.Id; PrivateKeyPath = created.PemPath; InstallationId = installId }
-                            match storeConfig cfg with
+                            match storeConfig name cfg with
                             | Error e ->
                                 eprintfn "Warning: could not save installation ID: %s" e
                             | Ok () ->
@@ -455,6 +458,25 @@ let main argv =
                         printfn "Then run:"
                         printfn "  orca auth app --app-id %s --key \"%s\" --installation-id <id>" created.Id created.PemPath
                     0
+            | Switch switchArgs ->
+                let profileName = switchArgs.GetResult(AuthSwitchArgs.Profile)
+                match readConfig () with
+                | Error e ->
+                    eprintfn "Error reading auth config: %s" e
+                    1
+                | Ok cfg ->
+                    match switchActive profileName cfg with
+                    | Error e ->
+                        eprintfn "Error: %s" e
+                        1
+                    | Ok updated ->
+                        match writeConfig updated with
+                        | Error e ->
+                            eprintfn "Error writing auth config: %s" e
+                            1
+                        | Ok () ->
+                            printfn "Active profile: %s" profileName
+                            0
         | Generate args ->
             let interactive  = args.Contains(GenerateArgs.Interactive)
             let skipCopilot  = args.Contains(GenerateArgs.Skip_Copilot)

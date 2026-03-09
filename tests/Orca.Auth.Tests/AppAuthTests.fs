@@ -246,7 +246,7 @@ let private withTempHome (f: string -> unit) =
 let ``storeConfigTo then loadConfigFrom round-trips all fields`` () =
     withTempHome (fun home ->
         let config = { AppId = "app-999"; PrivateKeyPath = "/keys/my.pem"; InstallationId = "install-777" }
-        match storeConfigTo home config with
+        match storeConfigTo home "my-app" config with
         | Error e -> Assert.Fail($"storeConfigTo failed: {e}")
         | Ok ()   ->
             match loadConfigFrom home with
@@ -257,6 +257,19 @@ let ``storeConfigTo then loadConfigFrom round-trips all fields`` () =
                 Assert.Equal("install-777",   loaded.InstallationId))
 
 [<Fact>]
+let ``storeConfigTo stores profile under the given name`` () =
+    withTempHome (fun home ->
+        let config = { AppId = "app-999"; PrivateKeyPath = "/keys/my.pem"; InstallationId = "install-777" }
+        match storeConfigTo home "my-profile" config with
+        | Error e -> Assert.Fail($"storeConfigTo failed: {e}")
+        | Ok ()   ->
+            match Orca.Auth.AuthConfig.readConfigFrom home with
+            | Error e  -> Assert.Fail($"readConfigFrom failed: {e}")
+            | Ok cfg ->
+                Assert.Equal("my-profile", cfg.Active)
+                Assert.True(cfg.Profiles.ContainsKey("my-profile")))
+
+[<Fact>]
 let ``loadConfigFrom returns error when config file does not exist`` () =
     withTempHome (fun home ->
         match loadConfigFrom home with
@@ -264,23 +277,37 @@ let ``loadConfigFrom returns error when config file does not exist`` () =
         | Error e -> Assert.Contains("No auth config found", e))
 
 [<Fact>]
-let ``loadConfigFrom returns error when config type is pat`` () =
+let ``loadConfigFrom returns error when active profile is type pat`` () =
     withTempHome (fun home ->
-        // Write a PAT config via the shared AuthConfig helper.
-        let patCfg : Orca.Auth.AuthConfig.AuthConfigFile =
-            { Type = "pat"; Token = Some "ghp_test"; AppId = None; KeyPath = None; InstallationId = None }
-        Orca.Auth.AuthConfig.writeConfigTo home patCfg |> ignore
+        // Write a config with a PAT profile set as active.
+        let profiles = System.Collections.Generic.Dictionary<string, Orca.Auth.AuthConfig.ProfileEntry>()
+        profiles.["pat"] <- { Type = "pat"; Token = Some "ghp_test"; AppId = None; KeyPath = None; InstallationId = None }
+        let cfg : Orca.Auth.AuthConfig.AuthConfigFile = { Active = "pat"; Profiles = profiles }
+        Orca.Auth.AuthConfig.writeConfigTo home cfg |> ignore
         match loadConfigFrom home with
-        | Ok _    -> Assert.Fail("Expected Error when config type is pat")
+        | Ok _    -> Assert.Fail("Expected Error when active profile type is pat")
         | Error e -> Assert.Contains("not an App config", e))
 
 [<Fact>]
 let ``loadConfigFrom returns error when app config fields are incomplete`` () =
     withTempHome (fun home ->
-        // Write an app config with missing InstallationId.
-        let incompleteCfg : Orca.Auth.AuthConfig.AuthConfigFile =
-            { Type = "app"; Token = None; AppId = Some "app-123"; KeyPath = Some "/key.pem"; InstallationId = None }
-        Orca.Auth.AuthConfig.writeConfigTo home incompleteCfg |> ignore
+        // Write an app profile with missing InstallationId.
+        let profiles = System.Collections.Generic.Dictionary<string, Orca.Auth.AuthConfig.ProfileEntry>()
+        profiles.["my-app"] <- { Type = "app"; Token = None; AppId = Some "app-123"; KeyPath = Some "/key.pem"; InstallationId = None }
+        let cfg : Orca.Auth.AuthConfig.AuthConfigFile = { Active = "my-app"; Profiles = profiles }
+        Orca.Auth.AuthConfig.writeConfigTo home cfg |> ignore
         match loadConfigFrom home with
         | Ok _    -> Assert.Fail("Expected Error for incomplete app config")
         | Error e -> Assert.Contains("incomplete", e))
+
+[<Fact>]
+let ``loadConfigFrom returns error when active profile does not exist`` () =
+    withTempHome (fun home ->
+        // Write a config where active points to a missing profile.
+        let profiles = System.Collections.Generic.Dictionary<string, Orca.Auth.AuthConfig.ProfileEntry>()
+        profiles.["other-app"] <- { Type = "app"; Token = None; AppId = Some "app-123"; KeyPath = Some "/key.pem"; InstallationId = Some "install-1" }
+        let cfg : Orca.Auth.AuthConfig.AuthConfigFile = { Active = "missing-profile"; Profiles = profiles }
+        Orca.Auth.AuthConfig.writeConfigTo home cfg |> ignore
+        match loadConfigFrom home with
+        | Ok _    -> Assert.Fail("Expected Error when active profile does not exist")
+        | Error e -> Assert.Contains("missing-profile", e))

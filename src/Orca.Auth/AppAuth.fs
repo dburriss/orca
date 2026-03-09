@@ -30,45 +30,51 @@ type AppAuthConfig =
       PrivateKeyPath : string
       InstallationId : string }
 
-/// Store GitHub App auth configuration for future use.
-let storeConfig (config: AppAuthConfig) : Result<unit, string> =
-    writeConfig
-        { Type           = "app"
-          Token          = None
-          AppId          = Some config.AppId
-          KeyPath        = Some config.PrivateKeyPath
-          InstallationId = Some config.InstallationId }
-
 /// Store GitHub App auth configuration under a given home directory (useful for testing).
-let storeConfigTo (homeDir: string) (config: AppAuthConfig) : Result<unit, string> =
-    writeConfigTo homeDir
+/// The profile is stored under `profileName` and set as the active profile.
+let storeConfigTo (homeDir: string) (profileName: string) (config: AppAuthConfig) : Result<unit, string> =
+    let entry : ProfileEntry =
         { Type           = "app"
           Token          = None
           AppId          = Some config.AppId
           KeyPath        = Some config.PrivateKeyPath
           InstallationId = Some config.InstallationId }
+    modifyConfigIn homeDir (fun cfg -> Ok (upsertProfile profileName entry cfg))
 
-/// Load the previously stored App auth configuration.
-let loadConfig () : Result<AppAuthConfig, string> =
-    readConfig ()
-    |> Result.bind (fun cfg ->
-        if cfg.Type <> "app" then
+/// Store GitHub App auth configuration for future use.
+/// The profile is stored under `profileName` and set as the active profile.
+let storeConfig (profileName: string) (config: AppAuthConfig) : Result<unit, string> =
+    let entry : ProfileEntry =
+        { Type           = "app"
+          Token          = None
+          AppId          = Some config.AppId
+          KeyPath        = Some config.PrivateKeyPath
+          InstallationId = Some config.InstallationId }
+    modifyConfig (fun cfg -> Ok (upsertProfile profileName entry cfg))
+
+/// Load the App auth configuration from the active profile in the given home directory.
+let loadConfigFrom (homeDir: string) : Result<AppAuthConfig, string> =
+    readConfigFrom homeDir
+    |> Result.bind getActiveProfile
+    |> Result.bind (fun profile ->
+        if profile.Type <> "app" then
             Error "Auth config is not an App config. Run 'orca auth app ...' first."
         else
-            match cfg.AppId, cfg.KeyPath, cfg.InstallationId with
+            match profile.AppId, profile.KeyPath, profile.InstallationId with
             | Some appId, Some keyPath, Some installId ->
                 Ok { AppId = appId; PrivateKeyPath = keyPath; InstallationId = installId }
             | _ ->
                 Error "App auth config is incomplete. Re-run 'orca auth app ...'.")
 
-/// Load the App auth configuration from a given home directory (useful for testing).
-let loadConfigFrom (homeDir: string) : Result<AppAuthConfig, string> =
-    readConfigFrom homeDir
-    |> Result.bind (fun cfg ->
-        if cfg.Type <> "app" then
+/// Load the previously stored App auth configuration from the active profile.
+let loadConfig () : Result<AppAuthConfig, string> =
+    readConfig ()
+    |> Result.bind getActiveProfile
+    |> Result.bind (fun profile ->
+        if profile.Type <> "app" then
             Error "Auth config is not an App config. Run 'orca auth app ...' first."
         else
-            match cfg.AppId, cfg.KeyPath, cfg.InstallationId with
+            match profile.AppId, profile.KeyPath, profile.InstallationId with
             | Some appId, Some keyPath, Some installId ->
                 Ok { AppId = appId; PrivateKeyPath = keyPath; InstallationId = installId }
             | _ ->

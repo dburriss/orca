@@ -25,9 +25,11 @@ open Orca.Auth.AuthConfig
 //   3. Open the default browser to http://localhost:<port>/.
 //   4. Wait (up to 120 s) for GitHub to redirect back with the code.
 //   5. Exchange the code for app credentials via the GitHub API.
-//   6. Save the PEM private key to ~/.config/orca/app.pem.
-//   7. Write auth.json with type=app, appId, keyPath (installationId left
-//      empty until the user installs the app and provides it).
+//   6. Save the PEM private key to ~/.config/orca/<appName>.pem.
+//   7. Write auth.json with a named profile (appName) set as active,
+//      type=app, appId, keyPath (installationId left empty until the user
+//      installs the app and provides it).
+//   8. Remove the legacy ~/.config/orca/app.pem if it exists.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -255,13 +257,13 @@ let runListener
 // Save PEM to disk
 // ---------------------------------------------------------------------------
 
-let private pemPath () =
+let private pemPath (appName: string) =
     let home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
-    Path.Combine(home, ".config", "orca", "app.pem")
+    Path.Combine(home, ".config", "orca", $"{appName}.pem")
 
-let savePem (pem: string) : Result<string, string> =
+let savePem (appName: string) (pem: string) : Result<string, string> =
     try
-        let path = pemPath ()
+        let path = pemPath appName
         let dir  = Path.GetDirectoryName(path) |> Option.ofObj |> Option.defaultValue "."
         Directory.CreateDirectory(dir) |> ignore
         File.WriteAllText(path, pem)
@@ -273,13 +275,14 @@ let savePem (pem: string) : Result<string, string> =
 // Store credentials in auth.json (without installationId)
 // ---------------------------------------------------------------------------
 
-let storeAppCredentials (appId: string) (keyPath: string) : Result<unit, string> =
-    writeConfig
+let storeAppCredentials (appName: string) (appId: string) (keyPath: string) : Result<unit, string> =
+    let entry : ProfileEntry =
         { Type           = "app"
           Token          = None
           AppId          = Some appId
           KeyPath        = Some keyPath
           InstallationId = None }
+    modifyConfig (fun cfg -> Ok (upsertProfile appName entry cfg))
 
 // ---------------------------------------------------------------------------
 // Build the GitHub App permissions settings URL
@@ -343,11 +346,13 @@ let execute (input: CreateAppInput) : Async<Result<CreatedApp, string>> =
         | Error e -> return Error e
         | Ok app  ->
 
-        match savePem app.Pem with
+        match savePem appName app.Pem with
         | Error e -> return Error e
         | Ok pemPath ->
 
-        match storeAppCredentials app.Id pemPath with
+        removeOldPem ()
+
+        match storeAppCredentials appName app.Id pemPath with
         | Error e -> return Error e
         | Ok ()   ->
 
