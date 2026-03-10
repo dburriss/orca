@@ -4,7 +4,8 @@
 // Publish Script for Orca CLI
 // =================================================================================
 // This script automates the release process for the Orca CLI binary.
-// It performs the following steps:
+//
+// Normal release flow (when Unreleased changes exist):
 // 1. Reads the current version from src/Orca.Tool/Orca.Tool.fsproj
 // 2. Extracts the "Unreleased" section from CHANGELOG.md
 // 3. Runs a preflight release build and test pass
@@ -18,6 +19,16 @@
 // 7. Runs a final release build before any git operations
 // 8. Stages, commits, and tags the release in Git
 // 9. Optionally pushes the changes and tag to the remote repository
+//
+// Retag flow (when there are no Unreleased changes):
+// 1. Shows the latest commit hash and message
+// 2. Asks whether to retag that commit with the current version
+// 3. Prompts the user to type the current version to confirm
+// 4. Runs a preflight release build and test pass
+// 5. Warns that the local tag will be deleted and recreated, and the remote
+//    tag will be force-pushed if the user chooses to push
+// 6. Deletes the existing local tag (if present) and recreates it at HEAD
+// 7. Optionally force-pushes the tag to the remote
 //
 // Arguments:
 //   --dry-run        Simulate the process without making any changes to disk or git.
@@ -34,8 +45,9 @@ open System.IO
 open System.Diagnostics
 open System.Xml.Linq
 
-let runProcess executable arguments workingDirectory =
-    let psi = ProcessStartInfo(executable, Arguments = arguments)
+let runProcess executable (arguments: string list) workingDirectory =
+    let psi = ProcessStartInfo(executable)
+    for arg in arguments do psi.ArgumentList.Add(arg)
     psi.RedirectStandardOutput <- true
     psi.RedirectStandardError <- true
     psi.UseShellExecute <- false
@@ -47,7 +59,8 @@ let runProcess executable arguments workingDirectory =
     p.WaitForExit()
 
     if p.ExitCode <> 0 then
-        failwithf "%s %s failed with exit code %d\nstdout:\n%s\nstderr:\n%s" executable arguments p.ExitCode output error
+        failwithf "%s %s failed with exit code %d\nstdout:\n%s\nstderr:\n%s"
+            executable (arguments |> String.concat " ") p.ExitCode output error
 
     output.Trim()
 
@@ -84,7 +97,7 @@ if not (File.Exists fsprojPath) then failwithf "Project file not found: %s" fspr
 if not (File.Exists changelogPath) then failwithf "Changelog not found: %s" changelogPath
 if not (File.Exists solutionPath) then failwithf "Solution file not found: %s" solutionPath
 
-let gitStatus = runProcess "git" "status --porcelain" rootPath
+let gitStatus = runProcess "git" ["status"; "--porcelain"] rootPath
 if gitStatus.Length > 0 && not allowDirty then
     failwith "Working tree is dirty. Commit or stash changes first, or rerun with --allow-dirty."
 
@@ -134,16 +147,80 @@ else
     unreleasedContent |> List.iter (fun l -> printfn "  %s" l)
 
 printfn ""
-if unreleasedContent.IsEmpty then
-    if not (promptYesNo "Warning: No unreleased changes found. Continue? (y/n): ") then exit 0
 
 let runReleaseBuild () =
     printfn "Running release build..."
-    runProcess "dotnet" (sprintf "build \"%s\" -c Release --nologo" solutionPath) rootPath |> ignore
+    runProcess "dotnet" ["build"; solutionPath; "-c"; "Release"; "--nologo"] rootPath |> ignore
 
 let runReleaseTests () =
     printfn "Running release tests..."
-    runProcess "dotnet" (sprintf "test \"%s\" -c Release --no-build --nologo" solutionPath) rootPath |> ignore
+    runProcess "dotnet" ["test"; solutionPath; "-c"; "Release"; "--no-build"; "--nologo"] rootPath |> ignore
+
+// ---------------------------------------------------------------------------
+// Retag path — no unreleased changes
+// ---------------------------------------------------------------------------
+
+if unreleasedContent.IsEmpty then
+    let headInfo = runProcess "git" ["log"; "-1"; "--pretty=format:%h %s"] rootPath
+    printfn "No unreleased changes found."
+    printfn "Latest commit: %s" headInfo
+    printfn ""
+
+    if not (promptYesNo (sprintf "Do you want to retag this commit as v%O? (y/n): " currentVersion)) then
+        printfn "Nothing to do."
+        exit 0
+
+    printf "Type the current version to confirm (%O): " currentVersion
+    let typed = Console.ReadLine()
+    if typed <> string currentVersion then
+        eprintfn "Version mismatch — expected '%O', got '%s'. Aborting." currentVersion typed
+        exit 1
+
+    if isDryRun then
+        printfn "[Dry Run] Would run: dotnet build \"%s\" -c Release --nologo" solutionPath
+        printfn "[Dry Run] Would run: dotnet test \"%s\" -c Release --no-build --nologo" solutionPath
+    else
+        runReleaseBuild ()
+        runReleaseTests ()
+
+    let tagName = sprintf "v%O" currentVersion
+    printfn ""
+    printfn "Warning: this will delete and recreate tag %s locally." tagName
+    printfn "If you choose to push, it will force-push the tag to the remote,"
+    printfn "overwriting any existing remote tag."
+    printfn ""
+
+    if isDryRun then
+        printfn "[Dry Run] Git operations skipped. Would execute:"
+        printfn "1. git tag -d %s  (if tag exists)" tagName
+        printfn "2. git tag %s" tagName
+        printfn "3. git push origin %s --force  (if push confirmed)" tagName
+        exit 0
+
+    let existingTag = runProcess "git" ["tag"; "-l"; tagName] rootPath
+    if existingTag.Length > 0 then
+        printfn "Deleting existing local tag %s..." tagName
+        runProcess "git" ["tag"; "-d"; tagName] rootPath |> ignore
+
+    printfn "Creating tag %s at HEAD..." tagName
+    runProcess "git" ["tag"; tagName] rootPath |> ignore
+    printfn "Tag %s created." tagName
+
+    if promptYesNo (sprintf "Push tag %s to remote (force)? (y/n): " tagName) then
+        printfn "Force-pushing tag %s..." tagName
+        try
+            runProcess "git" ["push"; "origin"; tagName; "--force"] rootPath |> printfn "%s"
+            printfn "Done!"
+        with ex ->
+            printfn "Error pushing tag: %s" ex.Message
+    else
+        printfn "Push skipped. Run: git push origin %s --force" tagName
+
+    exit 0
+
+// ---------------------------------------------------------------------------
+// Normal release path — unreleased changes exist
+// ---------------------------------------------------------------------------
 
 if isDryRun then
     printfn "[Dry Run] Would run: dotnet build \"%s\" -c Release --nologo" solutionPath
@@ -237,20 +314,20 @@ printfn "5. git push origin v%O" newVersion
 
 if promptYesNo "Proceed with git operations? (y/n): " then
     printfn "Executing git add..."
-    runProcess "git" (sprintf "add \"%s\" \"%s\"" fsprojPath changelogPath) rootPath |> ignore
+    runProcess "git" ["add"; fsprojPath; changelogPath] rootPath |> ignore
 
     printfn "Executing git commit..."
-    runProcess "git" (sprintf "commit -m \"release: prepare v%O\"" newVersion) rootPath |> ignore
+    runProcess "git" ["commit"; "-m"; sprintf "release: prepare v%O" newVersion] rootPath |> ignore
 
     printfn "Executing git tag..."
-    runProcess "git" (sprintf "tag v%O" newVersion) rootPath |> ignore
+    runProcess "git" ["tag"; sprintf "v%O" newVersion] rootPath |> ignore
 
     if promptYesNo "Push to remote? (y/n): " then
         printfn "Pushing main..."
         try
-            runProcess "git" "push origin main" rootPath |> printfn "%s"
+            runProcess "git" ["push"; "origin"; "main"] rootPath |> printfn "%s"
             printfn "Pushing tag..."
-            runProcess "git" (sprintf "push origin v%O" newVersion) rootPath |> printfn "%s"
+            runProcess "git" ["push"; "origin"; sprintf "v%O" newVersion] rootPath |> printfn "%s"
             printfn "Done!"
         with ex ->
             printfn "Error pushing: %s" ex.Message
