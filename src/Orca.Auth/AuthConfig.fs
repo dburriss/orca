@@ -173,7 +173,10 @@ let modifyConfig (f: AuthConfigFile -> Result<AuthConfigFile, string>) : Result<
 /// Silent no-op if the file is absent or cannot be deleted.
 let removeOldPem () : unit =
     try
-        let home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+        let home =
+            match Environment.GetEnvironmentVariable("HOME") with
+            | null | "" -> Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+            | h -> h
         let path = Path.Combine(home, ".config", "orca", "app.pem")
         if File.Exists(path) then File.Delete(path)
     with _ -> ()
