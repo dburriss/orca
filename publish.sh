@@ -9,4 +9,4 @@
 #   ./publish.sh              # Standard execution
 #   ./publish.sh --dry-run    # Test run to verify changes
 
-dotnet fsi scripts/publish.fsx "$@"
+dotnet fsi scripts/publish.fsx --allow-dirty "$@"
