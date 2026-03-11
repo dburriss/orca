@@ -10,7 +10,7 @@
     <Nullable>enable</Nullable>
     <Optimize>true</Optimize>
     <!-- Binary identity -->
-    <Version>0.2.2</Version>
+    <Version>0.3.0</Version>
     <Authors>Devon Burriss</Authors>
     <Description>A CLI tool for managing GitHub Projects and Copilot-assigned issues in bulk. Define your project in a YAML file and let orcai create issues, assign them to Copilot, and clean up when done.</Description>
     <Title>orcai</Title>
@@ -25,7 +25,7 @@
     <!-- Discoverability -->
     <PackageTags>github copilot cli project-management automation</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>Renamed from Orca.Tool to OrcAI.Tool; CLI command renamed from orca to orcai</PackageReleaseNotes>
+    <PackageReleaseNotes>[BREAKING] Renamed package from `Orca.Tool` to `OrcAI.Tool` and CLI command from `orca` to `orcai`; [BREAKING] Renamed config directory from `~/.config/orca/` to `~/.config/orcai/`; [BREAKING] Renamed environment variables: `ORCA_PAT` → `ORCAI_PAT`, `ORCA_APP_ID` → `ORCAI_APP_ID`, `ORCA_APP_INSTALLATION_ID` → `ORCAI_APP_INSTALLATION_ID`, `ORCA_APP_KEY_PATH` → `ORCAI_APP_KEY_PATH`, `ORCA_APP_PRIVATE_KEY` → `ORCAI_APP_PRIVATE_KEY`</PackageReleaseNotes>
     <!-- SourceLink / reproducible builds -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
