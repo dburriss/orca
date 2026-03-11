@@ -1,13 +1,13 @@
-# Orca CLI
+# OrcAI CLI
 
 A CLI tool for automating bulk GitHub repository upgrades. It reads a YAML job configuration file and manages GitHub Projects, issues, and Copilot assignments across multiple repositories.
 
 ## Prerequisites
 
 - **`gh` CLI**: Install from [cli.github.com](https://cli.github.com/) — must be installed and on `PATH`
-- **Authentication**: One of the following must be configured before running any command other than `orca auth`:
-  1. Stored PAT — `ORCA_PAT` env var, or `~/.config/orca/auth.json` with `"type": "pat"`
-  2. Stored GitHub App — `ORCA_APP_ID` / `ORCA_APP_INSTALLATION_ID` / `ORCA_APP_KEY_PATH` / `ORCA_APP_PRIVATE_KEY` env vars, or `~/.config/orca/auth.json` with `"type": "app"`
+- **Authentication**: One of the following must be configured before running any command other than `orcai auth`:
+  1. Stored PAT — `ORCAI_PAT` env var, or `~/.config/orcai/auth.json` with `"type": "pat"`
+  2. Stored GitHub App — `ORCAI_APP_ID` / `ORCAI_APP_INSTALLATION_ID` / `ORCAI_APP_KEY_PATH` / `ORCAI_APP_PRIVATE_KEY` env vars, or `~/.config/orcai/auth.json` with `"type": "app"`
   3. `GH_TOKEN` environment variable
   4. Ambient `gh` CLI auth (`gh auth token`)
 
@@ -37,7 +37,7 @@ issue:
 Scaffold a new YAML job config and a stub Markdown issue template.
 
 ```bash
-orca generate --name <name> --org <org> [--repo <repo>...] [--output <path>] [--skip-copilot] [--interactive]
+orcai generate --name <name> --org <org> [--repo <repo>...] [--output <path>] [--skip-copilot] [--interactive]
 ```
 
 | Flag | Required | Description |
@@ -58,7 +58,7 @@ Store credentials for use by all other commands. Three subcommands are available
 **PAT:**
 
 ```bash
-orca auth pat --token <token>
+orcai auth pat --token <token>
 ```
 
 | Flag | Required | Description |
@@ -68,7 +68,7 @@ orca auth pat --token <token>
 **GitHub App:**
 
 ```bash
-orca auth app --app-id <id> --key <path> --installation-id <id>
+orcai auth app --app-id <id> --key <path> --installation-id <id>
 ```
 
 | Flag | Required | Description |
@@ -80,32 +80,32 @@ orca auth app --app-id <id> --key <path> --installation-id <id>
 **Create GitHub App (browser-based):**
 
 ```bash
-orca auth create-app [--app-name <name>] [--org <org>] [--port <port>]
+orcai auth create-app [--app-name <name>] [--org <org>] [--port <port>]
 ```
 
 | Flag | Required | Description |
 |------|----------|-------------|
-| `--app-name` | No | Name for the new GitHub App (default: `orca`) |
+| `--app-name` | No | Name for the new GitHub App (default: `orcai`) |
 | `--org` | No | Register the app under an organisation instead of your personal account |
 | `--port` | No | Local callback port for the OAuth redirect (default: `9876`) |
 
 This command automates app *registration* but app *installation* requires a manual step:
 
-1. **Automatic** — opens your browser, submits the app manifest to GitHub, exchanges the OAuth code for credentials, saves the private key to `~/.config/orca/app.pem` and writes `auth.json`. A second browser tab opens to the app's permissions page so you can grant the org-level **Projects: Read and write** permission (not settable via manifest).
+1. **Automatic** — opens your browser, submits the app manifest to GitHub, exchanges the OAuth code for credentials, saves the private key to `~/.config/orcai/app.pem` and writes `auth.json`. A second browser tab opens to the app's permissions page so you can grant the org-level **Projects: Read and write** permission (not settable via manifest).
 2. **Manual** — you must install the app on your org or account by clicking through the GitHub UI. The CLI prints step-by-step instructions showing exactly where to find the installation ID in the GitHub UI.
 3. **Automatic (interactive)** — if running in a terminal, you are shown the install instructions and then prompted to enter the installation ID immediately, which completes the `auth.json` configuration. In non-interactive (CI) mode, the same instructions plus the manual command to run are printed instead:
 
 ```bash
-  orca auth app --app-id <id> --key <path> --installation-id <id>
+  orcai auth app --app-id <id> --key <path> --installation-id <id>
 ```
 
-Credentials are stored in `~/.config/orca/auth.json` and validated immediately. Environment variables (`ORCA_PAT`, `ORCA_APP_ID`, etc.) override stored values at runtime without modifying the file.
+Credentials are stored in `~/.config/orcai/auth.json` and validated immediately. Environment variables (`ORCAI_PAT`, `ORCAI_APP_ID`, etc.) override stored values at runtime without modifying the file.
 
 See [docs/app-auth.md](docs/app-auth.md) for setting up GitHub App authentication and [docs/AUTH-ENV-VARS.md](docs/AUTH-ENV-VARS.md) for environment variable reference.
 
 ### run
 
-Execute a bulk upgrade job. For each repository in the YAML, orca will:
+Execute a bulk upgrade job. For each repository in the YAML, orcai will:
 
 1. Find or create the GitHub Project for the org (idempotent)
 2. Find or create an issue using the issue template (idempotent)
@@ -113,7 +113,7 @@ Execute a bulk upgrade job. For each repository in the YAML, orca will:
 4. Assign `@copilot` to the issue if no assignees are set
 
 ```bash
-orca run <yaml_file> [--verbose] [--auto-create-labels] [--skip-copilot]
+orcai run <yaml_file> [--verbose] [--auto-create-labels] [--skip-copilot]
 ```
 
 | Argument / Flag | Required | Description |
@@ -130,7 +130,7 @@ On success a lock file (`<basename>.lock.json`) is written alongside the YAML. O
 Display a formatted snapshot of the current state of a job.
 
 ```bash
-orca info <yaml_file> [--skip-lock] [--save-lock]
+orcai info <yaml_file> [--skip-lock] [--save-lock]
 ```
 
 | Argument / Flag | Required | Description |
@@ -146,7 +146,7 @@ By default, reads from the lock file if it exists (no network calls). Use `--ski
 Tear down everything that `run` created for the same YAML configuration.
 
 ```bash
-orca cleanup <yaml_file> [--dryrun]
+orcai cleanup <yaml_file> [--dryrun]
 ```
 
 | Argument / Flag | Required | Description |
@@ -162,7 +162,7 @@ For full flag details, output formats, lock file schema, and advanced usage see 
 
 ---
 
-# Orca Nushell Scripts
+# OrcAI Nushell Scripts
 
 This repository contains Nushell scripts for managing GitHub projects and issues in bulk.
 

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-03-10
+
+### Changed
+
+- [BREAKING] Renamed package from `Orca.Tool` to `OrcAI.Tool` and CLI command from `orca` to `orcai`
+- [BREAKING] Renamed config directory from `~/.config/orca/` to `~/.config/orcai/`
+- [BREAKING] Renamed environment variables: `ORCA_PAT` → `ORCAI_PAT`, `ORCA_APP_ID` → `ORCAI_APP_ID`, `ORCA_APP_INSTALLATION_ID` → `ORCAI_APP_INSTALLATION_ID`, `ORCA_APP_KEY_PATH` → `ORCAI_APP_KEY_PATH`, `ORCA_APP_PRIVATE_KEY` → `ORCAI_APP_PRIVATE_KEY`
+
 ## [0.2.1] - 2026-03-10
 
 ### Fixed

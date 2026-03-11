@@ -39,15 +39,15 @@ jobs:
         include:
           - os: ubuntu-latest
             rid: linux-x64
-            artifact: orca
+            artifact: orcai
             suffix: ""
           - os: windows-latest
             rid: win-x64
-            artifact: orca.exe
+            artifact: orcai.exe
             suffix: ".exe"
           - os: macos-latest
             rid: osx-x64
-            artifact: orca
+            artifact: orcai
             suffix: ""
 
     runs-on: ${{ matrix.os }}
@@ -71,7 +71,7 @@ jobs:
 
       - name: Publish self-contained binary
         run: >
-          dotnet publish src/Orca.Tool/Orca.Tool.fsproj
+          dotnet publish src/OrcAI.Tool/OrcAI.Tool.fsproj
           --configuration Release
           --runtime ${{ matrix.rid }}
           --self-contained true
@@ -81,18 +81,18 @@ jobs:
 
       - name: Rename artifact (non-Windows)
         if: matrix.os != 'windows-latest'
-        run: mv ./publish/${{ matrix.rid }}/orca ./publish/${{ matrix.rid }}/orca-${{ matrix.rid }}
+        run: mv ./publish/${{ matrix.rid }}/orcai ./publish/${{ matrix.rid }}/orcai-${{ matrix.rid }}
 
       - name: Rename artifact (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
-        run: Rename-Item ./publish/${{ matrix.rid }}/orca.exe orca-${{ matrix.rid }}.exe
+        run: Rename-Item ./publish/${{ matrix.rid }}/orcai.exe orcai-${{ matrix.rid }}.exe
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
         with:
           body: ${{ needs.changelog.outputs.body }}
           files: |
-            ./publish/${{ matrix.rid }}/orca-${{ matrix.rid }}*
+            ./publish/${{ matrix.rid }}/orcai-${{ matrix.rid }}*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
