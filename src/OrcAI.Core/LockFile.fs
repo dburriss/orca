@@ -1,9 +1,9 @@
 module OrcAI.Core.LockFile
 
 open System
-open System.IO
 open System.Text.Json
 open System.Text.Json.Serialization
+open System.IO.Abstractions
 open OrcAI.Core.Domain
 
 // ---------------------------------------------------------------------------
@@ -129,24 +129,26 @@ let private ofDto (dto: LockFileDto) : LockFile =
 
 /// Derive the lock file path from the YAML config file path.
 let lockFilePath (yamlPath: string) : string =
-    let dir  = Path.GetDirectoryName(yamlPath) |> Option.ofObj |> Option.defaultValue "."
-    let stem = Path.GetFileNameWithoutExtension(yamlPath)
-    Path.Combine(dir, $"{stem}.lock.json")
+    let dir  = System.IO.Path.GetDirectoryName(yamlPath) |> Option.ofObj |> Option.defaultValue "."
+    let stem = System.IO.Path.GetFileNameWithoutExtension(yamlPath)
+    System.IO.Path.Combine(dir, $"{stem}.lock.json")
 
 /// Read and deserialise a lock file.
 /// Returns None if the file does not exist.
-let tryRead (yamlPath: string) : LockFile option =
+let tryRead (fs: IFileSystem) (yamlPath: string) : LockFile option =
     let path = lockFilePath yamlPath
-    if not (File.Exists(path)) then
+    if not (fs.File.Exists(path)) then
         None
     else
-        let json = File.ReadAllText(path)
+        let json = fs.File.ReadAllText(path)
         match JsonSerializer.Deserialize<LockFileDto>(json, jsonOptions) |> Option.ofObj with
         | None     -> failwith $"Lock file '{path}' deserialised to null."
         | Some dto -> Some (ofDto dto)
 
 /// Serialise and write a lock file to disk.
-let write (yamlPath: string) (lock: LockFile) : unit =
+let write (fs: IFileSystem) (yamlPath: string) (lock: LockFile) : unit =
     let path = lockFilePath yamlPath
+    let dir  = System.IO.Path.GetDirectoryName(path) |> Option.ofObj |> Option.defaultValue "."
+    fs.Directory.CreateDirectory(dir) |> ignore
     let json = JsonSerializer.Serialize(toDto lock, jsonOptions)
-    File.WriteAllText(path, json)
+    fs.File.WriteAllText(path, json)

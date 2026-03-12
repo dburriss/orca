@@ -14,6 +14,8 @@ open OrcAI.Core.Deps
 open OrcAI.Core.InfoCommand
 open OrcAI.Core.Domain
 open OrcAI.Core.GenerateCommand
+open System.IO.Abstractions
+open Testably.Abstractions
 
 // ---------------------------------------------------------------------------
 // Entry point — parses CLI arguments and dispatches to the appropriate
@@ -76,7 +78,8 @@ let private withClient (f: OrcAIDeps -> int) : int =
             let client = OrcAI.GitHub.GhClient.GhCliClient(ghToken)
             let deps : OrcAIDeps =
                 { GhClient    = client :> OrcAI.Core.GhClient.IGhClient
-                  AuthContext = authCtx }
+                  AuthContext = authCtx
+                  FileSystem  = RealFileSystem() :> IFileSystem }
             f deps
 
 /// Format an InfoResult for console output.
@@ -569,7 +572,7 @@ let main argv =
                               OutputPath  = outputPath
                               SkipCopilot = skipCopilot }
 
-                        match execute input with
+                        match execute deps input with
                         | Error e ->
                             eprintfn "Error: %s" e
                             1

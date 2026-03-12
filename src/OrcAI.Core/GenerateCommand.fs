@@ -82,7 +82,7 @@ let listOrgRepos (deps: OrcAIDeps) (org: string) : Async<Result<string list, str
 /// Execute the generate command.
 /// All interactive input (name, org, repo selection) must be resolved
 /// before calling this function — Program.fs handles the TUI.
-let execute (input: GenerateInput) : Result<string * string, string> =
+let execute (deps: OrcAIDeps) (input: GenerateInput) : Result<string * string, string> =
     if String.IsNullOrWhiteSpace(input.Name) then
         Error "--name is required."
     elif String.IsNullOrWhiteSpace(input.Org) then
@@ -96,10 +96,10 @@ let execute (input: GenerateInput) : Result<string * string, string> =
         let md   = buildMarkdown input.Name
 
         try
-            File.WriteAllText(yamlPath, yaml)
+            deps.FileSystem.File.WriteAllText(yamlPath, yaml)
             // Only write the markdown stub if it doesn't already exist.
-            if not (File.Exists(mdPath)) then
-                File.WriteAllText(mdPath, md)
+            if not (deps.FileSystem.File.Exists(mdPath)) then
+                deps.FileSystem.File.WriteAllText(mdPath, md)
             Ok (yamlPath, mdPath)
         with ex ->
             Error $"Failed to write output files: {ex.Message}"

@@ -1,29 +1,31 @@
 module OrcAI.Core.Tests.YamlConfigTests
 
-open System.IO
 open System.Text
 open Xunit
+open Testably.Abstractions.Testing
 open OrcAI.Core.YamlConfig
 open OrcAI.Core.Domain
 
 // ---------------------------------------------------------------------------
 // Unit tests for YAML config parsing and hash computation.
+// File I/O tests use MockFileSystem (in-memory); pure-function tests need no I/O.
 // ---------------------------------------------------------------------------
 
 [<Fact>]
 let ``parseFile returns error for missing file`` () =
-    let result = parseFile "/nonexistent/path/job.yml"
+    let fs     = MockFileSystem()
+    let result = parseFile fs "/nonexistent/path/job.yml"
     Assert.True(Result.isError result)
 
-/// Write a temp YAML file plus an issue template and return the YAML path.
-let private writeTempYaml (yaml: string) (templateContent: string) : string =
-    let dir  = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let templatePath = Path.Combine(dir, "template.md")
-    File.WriteAllText(templatePath, templateContent)
+/// Write an in-memory YAML file plus an issue template and return the YAML path.
+let private writeMockYaml (fs: MockFileSystem) (yaml: string) (templateContent: string) : string =
+    let dir          = "/work"
+    fs.Directory.CreateDirectory(dir) |> ignore
+    let templatePath = dir + "/template.md"
+    fs.File.WriteAllText(templatePath, templateContent)
     let resolvedYaml = yaml.Replace("TEMPLATE_PLACEHOLDER", "./template.md")
-    let yamlPath = Path.Combine(dir, "job.yml")
-    File.WriteAllText(yamlPath, resolvedYaml)
+    let yamlPath     = dir + "/job.yml"
+    fs.File.WriteAllText(yamlPath, resolvedYaml)
     yamlPath
 
 let private validYaml =
@@ -39,8 +41,9 @@ let private validYaml =
 
 [<Fact>]
 let ``parseFile parses valid YAML into JobConfig`` () =
-    let yamlPath = writeTempYaml validYaml "# Issue body"
-    let result   = parseFile yamlPath
+    let fs       = MockFileSystem()
+    let yamlPath = writeMockYaml fs validYaml "# Issue body"
+    let result   = parseFile fs yamlPath
     match result with
     | Error e -> Assert.True(false, $"Expected Ok but got Error: {e}")
     | Ok cfg  ->
@@ -54,8 +57,9 @@ let ``parseFile parses valid YAML into JobConfig`` () =
 
 [<Fact>]
 let ``parseFile prefixes repos with org`` () =
-    let yamlPath = writeTempYaml validYaml "body"
-    match parseFile yamlPath with
+    let fs       = MockFileSystem()
+    let yamlPath = writeMockYaml fs validYaml "body"
+    match parseFile fs yamlPath with
     | Error e -> Assert.True(false, $"Expected Ok but got Error: {e}")
     | Ok cfg  ->
         for repo in cfg.Repos do
@@ -64,9 +68,10 @@ let ``parseFile prefixes repos with org`` () =
 
 [<Fact>]
 let ``parseFile returns error when template file is missing`` () =
-    let dir      = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let yamlPath = Path.Combine(dir, "job.yml")
+    let fs       = MockFileSystem()
+    let dir      = "/work"
+    fs.Directory.CreateDirectory(dir) |> ignore
+    let yamlPath = dir + "/job.yml"
     let content =
         "job:\n" +
         "  title: \"T\"\n" +
@@ -75,23 +80,25 @@ let ``parseFile returns error when template file is missing`` () =
         "  - \"r\"\n" +
         "issue:\n" +
         "  template: \"./missing.md\"\n"
-    File.WriteAllText(yamlPath, content)
-    let result = parseFile yamlPath
+    fs.File.WriteAllText(yamlPath, content)
+    let result = parseFile fs yamlPath
     Assert.True(Result.isError result)
 
 [<Fact>]
 let ``parseFile returns error when job section is missing`` () =
-    let dir      = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let yamlPath = Path.Combine(dir, "job.yml")
-    File.WriteAllText(yamlPath, "repos:\n  - r\n")
-    let result = parseFile yamlPath
+    let fs       = MockFileSystem()
+    let dir      = "/work"
+    fs.Directory.CreateDirectory(dir) |> ignore
+    let yamlPath = dir + "/job.yml"
+    fs.File.WriteAllText(yamlPath, "repos:\n  - r\n")
+    let result = parseFile fs yamlPath
     Assert.True(Result.isError result)
 
 [<Fact>]
 let ``parseFile parses labels from YAML into JobConfig`` () =
-    let yamlPath = writeTempYaml validYaml "# Issue body"
-    match parseFile yamlPath with
+    let fs       = MockFileSystem()
+    let yamlPath = writeMockYaml fs validYaml "# Issue body"
+    match parseFile fs yamlPath with
     | Error e -> Assert.True(false, $"Expected Ok but got Error: {e}")
     | Ok cfg  ->
         Assert.Equal(1, cfg.Labels.Length)
@@ -107,32 +114,35 @@ let ``parseFile sets Labels to empty list when not present in YAML`` () =
         "  - \"repo-a\"\n" +
         "issue:\n" +
         "  template: \"TEMPLATE_PLACEHOLDER\"\n"
-    let yamlPath = writeTempYaml yaml "body"
-    match parseFile yamlPath with
+    let fs       = MockFileSystem()
+    let yamlPath = writeMockYaml fs yaml "body"
+    match parseFile fs yamlPath with
     | Error e -> Assert.True(false, $"Expected Ok but got Error: {e}")
     | Ok cfg  -> Assert.Empty(cfg.Labels)
 
 [<Fact>]
 let ``computeHash returns consistent hex string for same content`` () =
-    let dir      = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let yamlPath = Path.Combine(dir, "job.yml")
-    File.WriteAllText(yamlPath, "content: hello")
-    let hash1 = computeHash yamlPath
-    let hash2 = computeHash yamlPath
+    let fs       = MockFileSystem()
+    let dir      = "/work"
+    fs.Directory.CreateDirectory(dir) |> ignore
+    let yamlPath = dir + "/job.yml"
+    fs.File.WriteAllText(yamlPath, "content: hello")
+    let hash1 = computeHash fs yamlPath
+    let hash2 = computeHash fs yamlPath
     Assert.Equal(hash1, hash2)
     Assert.Equal(64, hash1.Length) // SHA-256 hex = 32 bytes = 64 chars
 
 [<Fact>]
 let ``computeHash returns different hashes for different content`` () =
-    let dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let p1 = Path.Combine(dir, "a.yml")
-    let p2 = Path.Combine(dir, "b.yml")
-    File.WriteAllText(p1, "content: hello")
-    File.WriteAllText(p2, "content: world")
-    let h1 = computeHash p1
-    let h2 = computeHash p2
+    let fs  = MockFileSystem()
+    let dir = "/work"
+    fs.Directory.CreateDirectory(dir) |> ignore
+    let p1 = dir + "/a.yml"
+    let p2 = dir + "/b.yml"
+    fs.File.WriteAllText(p1, "content: hello")
+    fs.File.WriteAllText(p2, "content: world")
+    let h1 = computeHash fs p1
+    let h2 = computeHash fs p2
     Assert.NotEqual<string>(h1, h2)
 
 // ---------------------------------------------------------------------------
@@ -235,7 +245,10 @@ let ``parse sets SkipCopilot true when job.skipCopilot is true`` () =
     match parse yaml "/any/path/issue.md" "body" with
     | Error e -> Assert.True(false, $"Expected Ok but got Error: {e}")
     | Ok cfg  -> Assert.True(cfg.SkipCopilot)
-    let bytes = Encoding.UTF8.GetBytes("hello world")
+
+[<Fact>]
+let ``hashBytes returns a 64-char lowercase hex string`` () =
+    let bytes  = Encoding.UTF8.GetBytes("hello world")
     let result = hashBytes bytes
     Assert.Equal(64, result.Length)
     Assert.True(result |> Seq.forall (fun c -> (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')),

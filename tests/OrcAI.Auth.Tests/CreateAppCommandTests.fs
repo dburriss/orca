@@ -2,6 +2,7 @@ module OrcAI.Auth.Tests.CreateAppCommandTests
 
 open System.Text.Json
 open Xunit
+open Testably.Abstractions.Testing
 open OrcAI.Auth.CreateAppCommand
 
 // ---------------------------------------------------------------------------
@@ -180,3 +181,37 @@ let ``parseConversionResponse handles string id`` () =
     match parseConversionResponse json with
     | Error e -> Assert.Fail($"Expected Ok but got Error: {e}")
     | Ok app  -> Assert.Equal("789", app.Id)
+
+// ---------------------------------------------------------------------------
+// savePem — uses MockFileSystem (in-memory, no real disk I/O)
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``savePem writes PEM content to the expected path`` () =
+    let fs      = MockFileSystem()
+    let homeDir = "/home/user"
+    let appName = "my-app"
+    let pem     = "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----\n"
+    match savePem fs homeDir appName pem with
+    | Error e -> Assert.Fail($"Expected Ok but got Error: {e}")
+    | Ok path ->
+        Assert.Equal("/home/user/.config/orcai/my-app.pem", path)
+        Assert.True(fs.File.Exists(path), "PEM file should exist")
+        Assert.Equal(pem, fs.File.ReadAllText(path))
+
+[<Fact>]
+let ``savePem creates parent directories if they do not exist`` () =
+    let fs      = MockFileSystem()
+    let homeDir = "/home/newuser"
+    match savePem fs homeDir "app" "pem-content" with
+    | Error e -> Assert.Fail($"Expected Ok but got Error: {e}")
+    | Ok path ->
+        Assert.True(fs.File.Exists(path), "PEM file should exist after directory creation")
+
+[<Fact>]
+let ``savePem returns the correct path for a different app name`` () =
+    let fs      = MockFileSystem()
+    let homeDir = "/root"
+    match savePem fs homeDir "other-app" "key" with
+    | Error e -> Assert.Fail($"Expected Ok but got Error: {e}")
+    | Ok path -> Assert.Equal("/root/.config/orcai/other-app.pem", path)

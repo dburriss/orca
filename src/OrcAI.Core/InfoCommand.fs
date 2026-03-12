@@ -82,14 +82,14 @@ let private fetchFromGitHub
 /// Returns an InfoResult on success, or an error string.
 let execute (deps: OrcAIDeps) (input: InfoInput) : Result<InfoResult, string> =
     // Parse the YAML config first (needed both for lock-file path and for live fetch)
-    match YamlConfig.parseFile input.YamlPath with
+    match YamlConfig.parseFile deps.FileSystem input.YamlPath with
     | Error e -> Error e
     | Ok config ->
 
     // Try the lock file unless --no-lock was specified
     let lockOpt =
         if input.SkipLock then None
-        else LockFile.tryRead input.YamlPath
+        else LockFile.tryRead deps.FileSystem input.YamlPath
 
     match lockOpt with
     | Some lock ->
@@ -97,7 +97,7 @@ let execute (deps: OrcAIDeps) (input: InfoInput) : Result<InfoResult, string> =
 
     | None ->
         // Fetch live state from GitHub
-        let yamlHash = YamlConfig.computeHash input.YamlPath
+        let yamlHash = YamlConfig.computeHash deps.FileSystem input.YamlPath
         let result   =
             fetchFromGitHub deps.GhClient config yamlHash
             |> Async.RunSynchronously
@@ -106,5 +106,5 @@ let execute (deps: OrcAIDeps) (input: InfoInput) : Result<InfoResult, string> =
         | Error e -> Error e
         | Ok lock ->
             if input.SaveLock then
-                LockFile.write input.YamlPath lock
+                LockFile.write deps.FileSystem input.YamlPath lock
             Ok { Lock = lock; Source = FromGitHub }

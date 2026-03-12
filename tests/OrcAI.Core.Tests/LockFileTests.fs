@@ -1,20 +1,21 @@
 module OrcAI.Core.Tests.LockFileTests
 
 open System
-open System.IO
 open Xunit
+open Testably.Abstractions.Testing
 open OrcAI.Core.LockFile
 open OrcAI.Core.Domain
 
 // ---------------------------------------------------------------------------
 // Unit tests for LockFile — path derivation, read, and write.
+// All file I/O uses MockFileSystem (in-memory); no real disk access.
 // ---------------------------------------------------------------------------
 
 [<Fact>]
 let ``lockFilePath derives correct path from yaml path`` () =
-    let dir      = Path.Combine(Path.GetTempPath(), "projects")
-    let yamlPath = Path.Combine(dir, "myjob.yml")
-    let expected = Path.Combine(dir, "myjob.lock.json")
+    let dir      = "/projects"
+    let yamlPath = "/projects/myjob.yml"
+    let expected = "/projects/myjob.lock.json"
     let result   = lockFilePath yamlPath
     Assert.Equal(expected, result)
 
@@ -25,11 +26,10 @@ let ``lockFilePath handles yaml file without directory`` () =
 
 [<Fact>]
 let ``tryRead returns None when lock file does not exist`` () =
-    let dir      = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let yamlPath = Path.Combine(dir, "job.yml")
+    let fs       = MockFileSystem()
+    let yamlPath = "/work/job.yml"
     // Don't create the lock file
-    let result = tryRead yamlPath
+    let result = tryRead fs yamlPath
     Assert.True(result.IsNone)
 
 let private sampleLock () : LockFile =
@@ -50,14 +50,13 @@ let private sampleLock () : LockFile =
 
 [<Fact>]
 let ``write then tryRead round-trips the lock file`` () =
-    let dir      = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let yamlPath = Path.Combine(dir, "job.yml")
+    let fs       = MockFileSystem()
+    let yamlPath = "/work/job.yml"
     let original = sampleLock ()
 
-    write yamlPath original
+    write fs yamlPath original
 
-    match tryRead yamlPath with
+    match tryRead fs yamlPath with
     | None      -> Assert.Fail("Expected Some but got None")
     | Some read ->
         Assert.Equal(original.YamlHash, read.YamlHash)
@@ -72,21 +71,19 @@ let ``write then tryRead round-trips the lock file`` () =
 
 [<Fact>]
 let ``write creates a JSON file at the expected path`` () =
-    let dir      = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let yamlPath = Path.Combine(dir, "myjob.yml")
-    write yamlPath (sampleLock ())
-    let expected = Path.Combine(dir, "myjob.lock.json")
-    Assert.True(File.Exists(expected), $"Expected lock file at {expected}")
+    let fs       = MockFileSystem()
+    let yamlPath = "/work/myjob.yml"
+    write fs yamlPath (sampleLock ())
+    let expected = "/work/myjob.lock.json"
+    Assert.True(fs.File.Exists(expected), $"Expected lock file at {expected}")
 
 [<Fact>]
 let ``write preserves lockedAt timestamp`` () =
-    let dir      = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let yamlPath = Path.Combine(dir, "job.yml")
+    let fs       = MockFileSystem()
+    let yamlPath = "/work/job.yml"
     let lock     = sampleLock ()
-    write yamlPath lock
-    match tryRead yamlPath with
+    write fs yamlPath lock
+    match tryRead fs yamlPath with
     | None      -> Assert.Fail("Expected Some but got None")
     | Some read ->
         // Compare to second precision to avoid formatting drift
@@ -94,11 +91,10 @@ let ``write preserves lockedAt timestamp`` () =
 
 [<Fact>]
 let ``write round-trips issue assignees`` () =
-    let dir      = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let yamlPath = Path.Combine(dir, "job.yml")
-    write yamlPath (sampleLock ())
-    match tryRead yamlPath with
+    let fs       = MockFileSystem()
+    let yamlPath = "/work/job.yml"
+    write fs yamlPath (sampleLock ())
+    match tryRead fs yamlPath with
     | None      -> Assert.Fail("Expected Some but got None")
     | Some read ->
         let issue = read.Issues |> List.head
@@ -110,12 +106,11 @@ let ``write round-trips issue assignees`` () =
 
 [<Fact>]
 let ``round-trip preserves all repo names`` () =
-    let dir  = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let path = Path.Combine(dir, "job.yml")
+    let fs   = MockFileSystem()
+    let path = "/work/job.yml"
     let lock = sampleLock ()
-    write path lock
-    match tryRead path with
+    write fs path lock
+    match tryRead fs path with
     | None      -> Assert.Fail("Expected Some")
     | Some read ->
         Assert.Equal<string list>(
@@ -124,11 +119,10 @@ let ``round-trip preserves all repo names`` () =
 
 [<Fact>]
 let ``round-trip preserves issue number and URL`` () =
-    let dir  = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let path = Path.Combine(dir, "job.yml")
-    write path (sampleLock ())
-    match tryRead path with
+    let fs   = MockFileSystem()
+    let path = "/work/job.yml"
+    write fs path (sampleLock ())
+    match tryRead fs path with
     | None      -> Assert.Fail("Expected Some")
     | Some read ->
         let issue = read.Issues |> List.head
@@ -137,11 +131,10 @@ let ``round-trip preserves issue number and URL`` () =
 
 [<Fact>]
 let ``round-trip preserves PR number, URL, and closesIssue`` () =
-    let dir  = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let path = Path.Combine(dir, "job.yml")
-    write path (sampleLock ())
-    match tryRead path with
+    let fs   = MockFileSystem()
+    let path = "/work/job.yml"
+    write fs path (sampleLock ())
+    match tryRead fs path with
     | None      -> Assert.Fail("Expected Some")
     | Some read ->
         let pr = read.PullRequests |> List.head
@@ -151,12 +144,11 @@ let ``round-trip preserves PR number, URL, and closesIssue`` () =
 
 [<Fact>]
 let ``round-trip preserves project org, title, number, and URL`` () =
-    let dir  = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let path = Path.Combine(dir, "job.yml")
+    let fs   = MockFileSystem()
+    let path = "/work/job.yml"
     let lock = sampleLock ()
-    write path lock
-    match tryRead path with
+    write fs path lock
+    match tryRead fs path with
     | None      -> Assert.Fail("Expected Some")
     | Some read ->
         Assert.Equal(lock.Project.Org,    read.Project.Org)
@@ -166,11 +158,10 @@ let ``round-trip preserves project org, title, number, and URL`` () =
 
 [<Fact>]
 let ``round-trip preserves yaml hash`` () =
-    let dir  = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
-    Directory.CreateDirectory(dir) |> ignore
-    let path = Path.Combine(dir, "job.yml")
+    let fs   = MockFileSystem()
+    let path = "/work/job.yml"
     let lock = { sampleLock () with YamlHash = "deadbeefcafe1234" }
-    write path lock
-    match tryRead path with
+    write fs path lock
+    match tryRead fs path with
     | None      -> Assert.Fail("Expected Some")
     | Some read -> Assert.Equal("deadbeefcafe1234", read.YamlHash)

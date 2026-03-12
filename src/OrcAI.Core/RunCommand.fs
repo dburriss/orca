@@ -219,7 +219,7 @@ let private runFull
 
     // Only write the lock file if every repo succeeded
     if failures = 0 then
-        LockFile.write input.YamlPath lock
+        LockFile.write deps.FileSystem input.YamlPath lock
 
     Ok { Lock = lock; Results = successes; Source = FullRun }
 
@@ -234,11 +234,11 @@ let private runFull
 /// a full run. processRepo tracks whether each issue was Created or AlreadyExisted.
 /// The lock file is only written when all repos succeed.
 let execute (deps: OrcAIDeps) (input: RunInput) : Result<RunResult, string> =
-    match YamlConfig.parseFile input.YamlPath with
+    match YamlConfig.parseFile deps.FileSystem input.YamlPath with
     | Error e -> Error e
     | Ok config ->
 
-    let yamlHash = YamlConfig.computeHash input.YamlPath
+    let yamlHash = YamlConfig.computeHash deps.FileSystem input.YamlPath
 
     if input.SkipLock then
         // Bypass lock entirely — always do a full run
@@ -247,7 +247,7 @@ let execute (deps: OrcAIDeps) (input: RunInput) : Result<RunResult, string> =
         runFull deps input config yamlHash
     else
 
-    match LockFile.tryRead input.YamlPath with
+    match LockFile.tryRead deps.FileSystem input.YamlPath with
     | Some lock when lock.YamlHash = yamlHash ->
         // Lock file is current — nothing to do, report all issues as already existing
         if input.Verbose then

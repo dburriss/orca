@@ -5,6 +5,7 @@ open System.IO
 open System.Security.Cryptography
 open YamlDotNet.Serialization
 open YamlDotNet.Serialization.NamingConventions
+open System.IO.Abstractions
 open OrcAI.Core.Domain
 
 // ---------------------------------------------------------------------------
@@ -89,12 +90,12 @@ let hashBytes (bytes: byte[]) : string =
 /// Parse a YAML job configuration from a file path.
 /// Reads the YAML and its referenced template from disk, then delegates to `parse`.
 /// Returns an error string if any file is missing or the content is malformed.
-let parseFile (path: string) : Result<JobConfig, string> =
-    if not (File.Exists(path)) then
+let parseFile (fs: IFileSystem) (path: string) : Result<JobConfig, string> =
+    if not (fs.File.Exists(path)) then
         Error $"YAML config file not found: {path}"
     else
         try
-            let yaml = File.ReadAllText(path)
+            let yaml = fs.File.ReadAllText(path)
             // Peek at the raw YAML to resolve the template path before full validation.
             let root = deserializer.Deserialize<YamlRoot>(yaml)
             if isNull (box root) || isNull (box root.issue) || String.IsNullOrWhiteSpace(root.issue.template) then
@@ -103,15 +104,15 @@ let parseFile (path: string) : Result<JobConfig, string> =
             else
                 let yamlDir      = Path.GetDirectoryName(Path.GetFullPath(path)) |> Option.ofObj |> Option.defaultValue "."
                 let templatePath = Path.GetFullPath(Path.Combine(yamlDir, root.issue.template))
-                if not (File.Exists(templatePath)) then
+                if not (fs.File.Exists(templatePath)) then
                     Error $"Issue template file not found: {templatePath}"
                 else
-                    let templateContent = File.ReadAllText(templatePath)
+                    let templateContent = fs.File.ReadAllText(templatePath)
                     parse yaml templatePath templateContent
         with ex ->
             Error $"Failed to parse YAML file '{path}': {ex.Message}"
 
 /// Compute the SHA-256 hash of the raw YAML file content.
 /// Used to populate the yamlHash field in the lock file.
-let computeHash (path: string) : string =
-    hashBytes (File.ReadAllBytes(path))
+let computeHash (fs: IFileSystem) (path: string) : string =
+    hashBytes (fs.File.ReadAllBytes(path))

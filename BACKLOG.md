@@ -17,7 +17,7 @@
 - [x] add `json` flag to `cleanup` to emit list of cleaned up resources. If `--dryrun` is also set, emit list of resources that would be cleaned up. Indicate with a boolean whether it is a dry run or not.
 - [x] add `json` to `run` output to emit list of created resources
 - [x] add a `--force` flag to `cleanup` to skip confirmation prompt
-- [ ] investigate a testable file system package to allow for easier testing of file operations (e.g. creating lock files)
+- [x] investigate a testable file system package to allow for easier testing of file operations (e.g. creating lock files)
 - [ ] add a `validate` command to check the YAML config for errors before attempting to run. Also check the repositories specified in the config to ensure they exist and are accessible with the provided credentials.
 - [ ] change the `run` and `validate` command so it take a file glob instead of a single YAML file. This would allow users to have multiple YAML configs in a directory and run them all at once with `orca run configs/*.yaml`. The lock files would be created with the same basename as the YAML file (e.g. `project.yaml` → `project.lock.json`). Can set `--max-concurrency` to limit the number of configs being processed in parallel to avoid hitting GitHub rate limits. Can set `--continue-on-error` to allow the command to keep running other configs even if one fails (lock file not created for the failed config, error reported in output, but other configs continue to run). Set `--max-depth` to limit the number of levels of nested includes in the YAML configs to avoid infinite loops.
 - [ ] a global and local config file to store default values for flags (e.g. default labels to add, skip copilot assignment, app permissions, etc.)

@@ -9,6 +9,8 @@ open System.Text
 open System.Text.Json
 open System.Threading
 open System.Threading.Tasks
+open System.IO.Abstractions
+open Testably.Abstractions
 open OrcAI.Auth.AuthConfig
 
 // ---------------------------------------------------------------------------
@@ -258,16 +260,15 @@ let runListener
 // Save PEM to disk
 // ---------------------------------------------------------------------------
 
-let private pemPath (appName: string) =
-    let home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
-    Path.Combine(home, ".config", "orcai", $"{appName}.pem")
+let private pemPath (homeDir: string) (appName: string) =
+    Path.Combine(homeDir, ".config", "orcai", $"{appName}.pem")
 
-let savePem (appName: string) (pem: string) : Result<string, string> =
+let savePem (fs: IFileSystem) (homeDir: string) (appName: string) (pem: string) : Result<string, string> =
     try
-        let path = pemPath appName
+        let path = pemPath homeDir appName
         let dir  = Path.GetDirectoryName(path) |> Option.ofObj |> Option.defaultValue "."
-        Directory.CreateDirectory(dir) |> ignore
-        File.WriteAllText(path, pem)
+        fs.Directory.CreateDirectory(dir) |> ignore
+        fs.File.WriteAllText(path, pem)
         Ok path
     with ex ->
         Error $"Failed to save private key: {ex.Message}"
@@ -347,7 +348,10 @@ let execute (input: CreateAppInput) : Async<Result<CreatedApp, string>> =
         | Error e -> return Error e
         | Ok app  ->
 
-        match savePem appName app.Pem with
+        let fs      = RealFileSystem() :> IFileSystem
+        let homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+
+        match savePem fs homeDir appName app.Pem with
         | Error e -> return Error e
         | Ok pemPath ->
 

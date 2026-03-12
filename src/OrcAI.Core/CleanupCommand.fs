@@ -18,7 +18,6 @@ module OrcAI.Core.CleanupCommand
 //   API and issues are read from the YAML config repos.
 // ---------------------------------------------------------------------------
 
-open System.IO
 open OrcAI.Core.Domain
 open OrcAI.Core.GhClient
 open OrcAI.Core.Deps
@@ -86,7 +85,7 @@ let private cleanupIssue
 /// Returns a CleanupResult on success, or an error string.
 let execute (deps: OrcAIDeps) (input: CleanupInput) : Result<CleanupResult, string> =
     // 1. Parse YAML to get org and project title (needed whether or not lock exists)
-    match YamlConfig.parseFile input.YamlPath with
+    match YamlConfig.parseFile deps.FileSystem input.YamlPath with
     | Error e -> Error e
     | Ok config ->
 
@@ -97,7 +96,7 @@ let execute (deps: OrcAIDeps) (input: CleanupInput) : Result<CleanupResult, stri
 
     // 3. Resolve project and issues — prefer lock file
     let projectAndIssues : Result<ProjectInfo * IssueRef list, string> =
-        match LockFile.tryRead input.YamlPath with
+        match LockFile.tryRead deps.FileSystem input.YamlPath with
         | Some lock ->
             Ok (lock.Project, lock.Issues)
         | None ->
@@ -160,8 +159,8 @@ let execute (deps: OrcAIDeps) (input: CleanupInput) : Result<CleanupResult, stri
     let lockFileResource =
         if not input.DryRun then
             let lockPath = LockFile.lockFilePath input.YamlPath
-            if File.Exists(lockPath) then
-                File.Delete(lockPath)
+            if deps.FileSystem.File.Exists(lockPath) then
+                deps.FileSystem.File.Delete(lockPath)
                 [RemovedLockFile]
             else
                 []
