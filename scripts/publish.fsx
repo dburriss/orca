@@ -88,9 +88,9 @@ if isDryRun then
 
 let rootDir = __SOURCE_DIRECTORY__ |> Directory.GetParent
 let rootPath = rootDir.FullName
-let fsprojPath = Path.Combine(rootPath, "src/Orca.Tool/Orca.Tool.fsproj")
+let fsprojPath = Path.Combine(rootPath, "src/OrcAI.Tool/OrcAI.Tool.fsproj")
 let changelogPath = Path.Combine(rootPath, "CHANGELOG.md")
-let solutionPath = Path.Combine(rootPath, "Orca.sln")
+let solutionPath = Path.Combine(rootPath, "OrcAI.sln")
 
 printfn "Checking files..."
 if not (File.Exists fsprojPath) then failwithf "Project file not found: %s" fsprojPath
@@ -253,7 +253,7 @@ let releaseNotes =
     unreleasedContent
     |> List.filter (fun l -> l.Trim().StartsWith("-") || l.Trim().StartsWith("*"))
     |> List.map (fun l -> l.Trim().TrimStart('-', '*').Trim())
-    |> String.concat "; "
+    |> String.concat "\n"
 
 printfn "Updating fsproj..."
 if isDryRun then
