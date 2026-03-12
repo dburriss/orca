@@ -250,8 +250,13 @@ type GhCliClient(ghToken: string) =
                 let (RepoName repoStr)   = repo
                 let (IssueNumber issueN) = issue
                 match! runGh ghToken $"issue delete {issueN} --repo {repoStr} --yes" with
-                | Error e -> return Error e
                 | Ok _    -> return Ok ()
+                | Error e ->
+                    // Treat "not found" as success — the issue is already gone.
+                    if e.Contains("Could not resolve to an issue or pull request") then
+                        return Ok ()
+                    else
+                        return Error e
             }
 
         member _.AddIssueToProject project issue =

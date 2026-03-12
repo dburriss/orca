@@ -32,7 +32,7 @@ section "orca cleanup"
 
 let args =
     if isDryRun then sprintf "cleanup --dryrun \"%s\"" fixtureYaml
-    else             sprintf "cleanup \"%s\""          fixtureYaml
+    else             sprintf "cleanup --force \"%s\""  fixtureYaml
 
 let result = runCmd orcaBin args
 printResult result

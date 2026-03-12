@@ -21,7 +21,7 @@ open Helpers
 
 section "orca run"
 
-let result = runCmd orcaBin (sprintf "run \"%s\"" fixtureYaml)
+let result = runCmd orcaBin (sprintf "run --skip-lock \"%s\"" fixtureYaml)
 printResult result
 
 assertExitCode       0              "exit code is 0"          result
