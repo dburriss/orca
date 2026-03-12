@@ -299,3 +299,11 @@ type GhCliClient(ghToken: string) =
                         |> List.ofSeq
                     return Ok names
             }
+
+        member _.RepoExists repo =
+            async {
+                let (RepoName repoStr) = repo
+                match! runGh ghToken $"repo view {repoStr} --json name" with
+                | Ok _    -> return Ok ()
+                | Error e -> return Error e
+            }

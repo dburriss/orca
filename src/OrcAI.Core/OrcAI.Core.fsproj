@@ -13,6 +13,7 @@
     <Compile Include="Deps.fs" />
     <Compile Include="YamlConfig.fs" />
     <Compile Include="LockFile.fs" />
+    <Compile Include="ValidateCommand.fs" />
     <Compile Include="RunCommand.fs" />
     <Compile Include="CleanupCommand.fs" />
     <Compile Include="InfoCommand.fs" />

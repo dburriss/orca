@@ -581,6 +581,45 @@ let main argv =
                             printfn "  %s" yamlPath
                             printfn "  %s" mdPath
                             0)
+        | Validate args ->
+            let yamlFile   = args.GetResult(ValidateArgs.Yaml_File)
+            let noParallel = args.Contains(ValidateArgs.No_Parallel)
+            let json       = args.Contains(ValidateArgs.Json)
+            withClient (fun deps ->
+                let input : OrcAI.Core.ValidateCommand.ValidateInput =
+                    { YamlPath   = yamlFile
+                      NoParallel = noParallel }
+                let results =
+                    OrcAI.Core.ValidateCommand.execute deps input
+                    |> Async.RunSynchronously
+                if json then
+                    let doc =
+                        results
+                        |> List.map (fun (path, r) ->
+                            {| path         = path
+                               valid        = r.IsValid
+                               configErrors = r.ConfigErrors
+                               repoErrors   =
+                                   r.RepoErrors
+                                   |> List.map (fun (RepoName rn, e) -> {| repo = rn; error = e |}) |})
+                    // For a single-file validate, unwrap to flat object to match spec.
+                    match doc with
+                    | [ single ] ->
+                        printfn "%s" (JsonSerializer.Serialize({| valid = single.valid; configErrors = single.configErrors; repoErrors = single.repoErrors |}, jsonOptions))
+                    | _ ->
+                        printfn "%s" (JsonSerializer.Serialize(doc, jsonOptions))
+                else
+                    for (_path, r) in results do
+                        for e in r.ConfigErrors do
+                            AnsiConsole.MarkupLine($"[red]{Markup.Escape(e)}[/]")
+                        for (RepoName rn, e) in r.RepoErrors do
+                            AnsiConsole.MarkupLine($"[red]{Markup.Escape(rn)}: {Markup.Escape(e)}[/]")
+                let allValid = results |> List.forall (fun (_, r) -> r.IsValid)
+                if allValid then
+                    AnsiConsole.MarkupLine("[green]Validation passed.[/]")
+                    0
+                else
+                    1)
     with
     | :? ArguParseException as ex ->
         eprintfn "%s" ex.Message

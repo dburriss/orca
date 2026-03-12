@@ -125,6 +125,18 @@ type GenerateArgs =
             | Skip_Copilot  -> "Set skipCopilot: true in the generated config."
             | Interactive   -> "Prompt for any missing values and select repos via an interactive TUI."
 
+[<CliPrefix(CliPrefix.DoubleDash)>]
+type ValidateArgs =
+    | [<MainCommand; Mandatory>] Yaml_File of path: string
+    | No_Parallel
+    | Json
+    interface IArgParserTemplate with
+        member a.Usage =
+            match a with
+            | Yaml_File _  -> "Path to the YAML job configuration file."
+            | No_Parallel  -> "Check repositories sequentially instead of in parallel."
+            | Json         -> "Emit machine-readable JSON output to stdout."
+
 [<CliPrefix(CliPrefix.None)>]
 type OrcAIArgs =
     | [<SubCommand>] Run      of ParseResults<RunArgs>
@@ -132,6 +144,7 @@ type OrcAIArgs =
     | [<SubCommand>] Info     of ParseResults<InfoArgs>
     | [<SubCommand>] Auth     of ParseResults<AuthArgs>
     | [<SubCommand>] Generate of ParseResults<GenerateArgs>
+    | [<SubCommand>] Validate of ParseResults<ValidateArgs>
     interface IArgParserTemplate with
         member a.Usage =
             match a with
@@ -140,3 +153,4 @@ type OrcAIArgs =
             | Info _     -> "Display the current state of a job."
             | Auth _     -> "Configure authentication for OrcAI."
             | Generate _ -> "Generate a YAML job config from a name, org, and optional repo list."
+            | Validate _ -> "Validate a YAML job config and verify all repos are accessible."
