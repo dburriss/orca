@@ -4,11 +4,11 @@
 
 open System
 
-/// Path to the orca binary. Defaults to "orca" (must be on PATH).
-/// Override by setting the ORCA_BIN environment variable.
+/// Path to the orcai binary. Defaults to "orcai" (must be on PATH).
+/// Override by setting the ORCAI_BIN environment variable.
 let orcaBin =
-    match Environment.GetEnvironmentVariable("ORCA_BIN") with
-    | null | "" -> "orca"
+    match Environment.GetEnvironmentVariable("ORCAI_BIN") with
+    | null | "" -> "orcai"
     | v         -> v
 
 /// GitHub org that owns the validation repo.
