@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-13
+
 ### Added
 
 - `orcai validate` command — validates one or more YAML job configs and verifies all listed repos are accessible via `gh repo view`; supports `--json`, `--no-parallel`, `--max-concurrency`, and `--continue-on-error`
