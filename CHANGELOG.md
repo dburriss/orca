@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### Added
+
+- `orcai validate` command — validates one or more YAML job configs and verifies all listed repos are accessible via `gh repo view`; supports `--json`, `--no-parallel`, `--max-concurrency`, and `--continue-on-error`
+- Glob pattern support for `orcai run` and `orcai validate` — pass a quoted glob (e.g. `"jobs/*.yml"`) to process multiple config files in one invocation
+- `--max-concurrency <n>` flag on `orcai run` and `orcai validate` — limits the number of config files processed concurrently (default: 4); high values may hit GitHub rate limits
+- `--no-parallel` flag on `orcai run` and `orcai validate` — disables all parallelism (both file-level and repo-level); overrides `--max-concurrency`
+- `--continue-on-error` flag on `orcai run` and `orcai validate` — continues processing remaining files after a failure instead of stopping on the first error
+- `--skip-lock` flag on `orcai run` — bypasses the lock file and always fetches live state from GitHub
+- Layered config file support — `~/.config/orcai/config.json` (global) and `.orcai/config.json` (local, takes precedence); supports `skipCopilot`, `defaultLabels`, `autoCreateLabels`, `maxConcurrency`, `continueOnError`, and `defaultOrg`
+
+### Changed
+
+- [BREAKING] `orcai run --json` output shape changed to a filename-keyed object to support multi-file runs; field names also changed: `issuesCreated` → `created`, `issuesAlreadyExisted` → `alreadyExisted`, `issues` → `repos`; a per-file `"error"` key is included on failure
+- [BREAKING] `orcai validate --json` output is now a filename-keyed object (consistent with `run --json`)
+- Human-readable output for multi-file `run` and `validate` now prefixes each file's output with a `--- <filename> ---` header
+
+### Fixed
+
+- Fixed repo accessibility check in validation scripts
+
 ## [0.3.0] - 2026-03-11
 
 ### Changed
